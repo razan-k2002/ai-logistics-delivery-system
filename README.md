@@ -1,7 +1,7 @@
 # AI-Driven Logistics & Delivery Management System
 
 ## Overview
-This project is a master's-level system designed to optimize last-mile delivery using AI-based decision support tools.
+This project is a system designed to optimize last-mile delivery using AI-based decision support tools.
 
 ## Roles
 - Customer
