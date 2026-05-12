@@ -16,23 +16,32 @@ exports.createDelivery = async (req, res) => {
 
         // Call AI service to optimize route
         let optimizedRoute = null;
-        if (pickup_coords && delivery_coords) {
-            try {
-                const aiResponse = await axios.post("http://127.0.0.1:5000/optimize", {
-                    locations: [pickup_coords, delivery_coords]
-                });
-                optimizedRoute = aiResponse.data;
-           } catch (aiError) {
-             console.error("AI service error:", aiError.message);
-             console.error("AI service full error:", aiError.response?.data);
-            }
-        }
-
-        res.json({
-            message: "Delivery created successfully",
-            delivery,
-            optimized_route: optimizedRoute
+if (pickup_coords && delivery_coords) {
+    try {
+        const aiResponse = await axios.post("http://127.0.0.1:5000/optimize", {
+            locations: [pickup_coords, delivery_coords]
         });
+        optimizedRoute = aiResponse.data;
+
+        // Save estimated time to database
+        const estimatedMinutes = Math.round(optimizedRoute.total_duration_minutes);
+        await pool.query(
+            "UPDATE deliveries SET estimated_time=$1 WHERE id=$2",
+            [estimatedMinutes, delivery.id]
+        );
+        delivery.estimated_time = estimatedMinutes;
+
+    } catch (aiError) {
+        console.error("AI service error:", aiError.message);
+        console.error("AI service full error:", aiError.response?.data);
+    }
+}
+
+res.json({
+    message: "Delivery created successfully",
+    delivery,
+    optimized_route: optimizedRoute
+});
 
     } catch (error) {
         console.error(error);
@@ -141,14 +150,22 @@ exports.updateStatus = async (req, res) => {
             return res.status(404).json({ error: "Delivery not found" });
         }
 
-        // Update status
-        const result = await pool.query(
-            `UPDATE deliveries 
-             SET status=$1 
-             WHERE id=$2 
-             RETURNING *`,
-            [status, id]
-        );
+        // Calculate actual delivery time in minutes
+let actualTime = null;
+if (status === "delivered") {
+    const createdAt = new Date(delivery.rows[0].created_at);
+    const now = new Date();
+    actualTime = Math.round((now - createdAt) / 60000);
+}
+
+// Update status
+const result = await pool.query(
+    `UPDATE deliveries 
+     SET status=$1, actual_delivery_time=$2
+     WHERE id=$3 
+     RETURNING *`,
+    [status, actualTime, id]
+);
 
         // If delivered or cancelled, free up the driver
         if (status === "delivered" || status === "cancelled") {
