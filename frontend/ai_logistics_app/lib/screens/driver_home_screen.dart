@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class DriverHomeScreen extends StatefulWidget {
   const DriverHomeScreen({super.key});
@@ -9,39 +10,39 @@ class DriverHomeScreen extends StatefulWidget {
 
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _isAvailable = true;
+  List<dynamic> _deliveries = [];
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> _assignedDeliveries = [
-    {
-      'id': '#DEL001',
-      'customer': 'Sarah Johnson',
-      'pickup': '123 Main St',
-      'dropoff': '456 Oak Ave',
-      'status': 'Pending',
-      'statusColor': Colors.orange,
-      'distance': '3.2 km',
-      'eta': '15 mins',
-    },
-    {
-      'id': '#DEL002',
-      'customer': 'Mike Smith',
-      'pickup': '789 Pine Rd',
-      'dropoff': '321 Elm St',
-      'status': 'In Transit',
-      'statusColor': Colors.blue,
-      'distance': '5.8 km',
-      'eta': '25 mins',
-    },
-    {
-      'id': '#DEL003',
-      'customer': 'Emma Davis',
-      'pickup': '555 Maple Dr',
-      'dropoff': '888 Cedar Ln',
-      'status': 'Assigned',
-      'statusColor': Colors.purple,
-      'distance': '2.1 km',
-      'eta': '10 mins',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadDeliveries();
+  }
+
+  void _loadDeliveries() async {
+    final result = await ApiService.getDriverDeliveries(1);
+    setState(() {
+      _isLoading = false;
+      if (result['success']) {
+        _deliveries = result['data'] is List ? result['data'] : [];
+      }
+    });
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'in_progress':
+        return Colors.blue;
+      case 'delivered':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,12 +56,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () => Navigator.pushNamed(context, '/notifications'),
-          ),
-          IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+            onPressed: () {
+              ApiService.token = null;
+              Navigator.pushReplacementNamed(context, '/login');
+            },
           ),
         ],
       ),
@@ -69,7 +69,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Availability Toggle Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -111,70 +110,113 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         ),
                       );
                     },
-                    activeThumbColor: Colors.white,
+                    activeColor: Colors.white,
                   ),
                 ],
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // Stats Row
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    title: 'Today\'s\nDeliveries',
-                    value: '5',
-                    icon: Icons.local_shipping,
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    title: 'Completed\nToday',
-                    value: '3',
-                    icon: Icons.check_circle,
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    title: 'Rating',
-                    value: '4.8',
-                    icon: Icons.star,
-                    color: Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-
             const SizedBox(height: 24),
-
-            // Assigned Deliveries
             const Text(
               'Assigned Deliveries',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-
-            ..._assignedDeliveries.map((delivery) {
-              return _DeliveryCard(
-                delivery: delivery,
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  '/delivery-details',
-                  arguments: delivery,
-                ),
-              );
-            }),
+            _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.orange),
+                  )
+                : _deliveries.isEmpty
+                ? const Center(child: Text('No deliveries assigned'))
+                : Column(
+                    children: _deliveries.map((delivery) {
+                      final status = delivery['status'] ?? 'pending';
+                      return GestureDetector(
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/delivery-details',
+                          arguments: delivery,
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '#DEL00${delivery['id']}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _getStatusColor(
+                                        status,
+                                      ).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      status,
+                                      style: TextStyle(
+                                        color: _getStatusColor(status),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.circle,
+                                    color: Colors.green,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    delivery['pickup_location'] ?? '',
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.location_on,
+                                    color: Colors.red,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    delivery['delivery_location'] ?? '',
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
           ],
         ),
       ),
-
-      // Bottom Navigation
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: Colors.orange,
         currentIndex: 0,
@@ -183,165 +225,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
-      ),
-    );
-  }
-}
-
-// Stat Card Widget
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            title,
-            style: const TextStyle(color: Colors.grey, fontSize: 11),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Delivery Card Widget
-class _DeliveryCard extends StatelessWidget {
-  final Map<String, dynamic> delivery;
-  final VoidCallback onTap;
-
-  const _DeliveryCard({required this.delivery, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  delivery['id'],
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: delivery['statusColor'].withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    delivery['status'],
-                    style: TextStyle(
-                      color: delivery['statusColor'],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.person, color: Colors.grey, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  delivery['customer'],
-                  style: const TextStyle(color: Colors.grey),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.circle, color: Colors.green, size: 12),
-                const SizedBox(width: 8),
-                Expanded(child: Text(delivery['pickup'])),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.location_on, color: Colors.red, size: 12),
-                const SizedBox(width: 8),
-                Expanded(child: Text(delivery['dropoff'])),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.route, color: Colors.orange, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  delivery['distance'],
-                  style: const TextStyle(color: Colors.orange),
-                ),
-                const SizedBox(width: 16),
-                const Icon(Icons.access_time, color: Colors.orange, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  delivery['eta'],
-                  style: const TextStyle(color: Colors.orange),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

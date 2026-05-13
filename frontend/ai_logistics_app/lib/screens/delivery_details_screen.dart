@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class DeliveryDetailsScreen extends StatefulWidget {
   const DeliveryDetailsScreen({super.key});
@@ -8,28 +9,39 @@ class DeliveryDetailsScreen extends StatefulWidget {
 }
 
 class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
-  String _currentStatus = 'Pending';
+  String _currentStatus = 'pending';
+  bool _isUpdating = false;
 
   final List<String> _statusOptions = [
-    'Pending',
-    'Assigned',
-    'In Transit',
-    'Delivered',
-    'Cancelled',
+    'pending',
+    'in_progress',
+    'delivered',
+    'cancelled',
   ];
 
-  void _updateStatus(String newStatus) {
-    setState(() => _currentStatus = newStatus);
+  void _updateStatus(String newStatus, int deliveryId) async {
+    setState(() => _isUpdating = true);
+    final result = await ApiService.updateDeliveryStatus(deliveryId, newStatus);
+    setState(() {
+      _isUpdating = false;
+      if (result['success']) {
+        _currentStatus = newStatus;
+      }
+    });
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Status updated to $newStatus'),
-        backgroundColor: Colors.green,
+        content: Text(
+          result['success']
+              ? 'Status updated to $newStatus'
+              : result['message'],
+        ),
+        backgroundColor: result['success'] ? Colors.green : Colors.red,
       ),
     );
   }
 
-  void _showStatusUpdate() {
+  void _showStatusUpdate(int deliveryId) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -50,7 +62,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
               ..._statusOptions.map((status) {
                 final isSelected = _currentStatus == status;
                 return GestureDetector(
-                  onTap: () => _updateStatus(status),
+                  onTap: () => _updateStatus(status, deliveryId),
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(16),
@@ -93,144 +105,27 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
     );
   }
 
-  void _showVerificationUpload() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Delivery Verification (OCR)',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Upload a photo to verify delivery completion',
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Camera opened!'),
-                            backgroundColor: Colors.orange,
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.orange.withOpacity(0.3),
-                          ),
-                        ),
-                        child: const Column(
-                          children: [
-                            Icon(
-                              Icons.camera_alt,
-                              size: 36,
-                              color: Colors.orange,
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Take Photo',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Gallery opened!'),
-                            backgroundColor: Colors.orange,
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.blue.withOpacity(0.3),
-                          ),
-                        ),
-                        child: const Column(
-                          children: [
-                            Icon(
-                              Icons.photo_library,
-                              size: 36,
-                              color: Colors.blue,
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Upload Photo',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Get delivery data passed from driver home
     final delivery =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
         {
-          'id': '#DEL001',
-          'customer': 'Sarah Johnson',
-          'pickup': '123 Main St',
-          'dropoff': '456 Oak Ave',
-          'status': 'Pending',
-          'statusColor': Colors.orange,
-          'distance': '3.2 km',
-          'eta': '15 mins',
+          'id': 1,
+          'pickup_location': 'Pickup Location',
+          'delivery_location': 'Drop-off Location',
+          'status': 'pending',
+          'customer': {'name': 'Customer'},
         };
+
+    final deliveryId = delivery['id'] ?? 1;
+    _currentStatus = delivery['status'] ?? 'pending';
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: Colors.orange,
         title: Text(
-          'Delivery ${delivery['id']}',
+          'Delivery #DEL00$deliveryId',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -244,9 +139,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -261,7 +154,6 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                     'Current Status',
                     style: TextStyle(color: Colors.white, fontSize: 14),
                   ),
-                  const SizedBox(height: 4),
                   Text(
                     _currentStatus,
                     style: const TextStyle(
@@ -270,81 +162,10 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.access_time,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'ETA: ${delivery['eta']}',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.route, color: Colors.white, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        delivery['distance'],
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // Customer Info
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.orange,
-                    child: Icon(Icons.person, color: Colors.white, size: 28),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Customer',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                        Text(
-                          delivery['customer'],
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.call, color: Colors.green),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.green.withOpacity(0.1),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
             const SizedBox(height: 16),
-
-            // Route Details
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -363,32 +184,22 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                     children: [
                       const Icon(Icons.circle, color: Colors.green, size: 14),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Pickup',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                            Text(
-                              delivery['pickup'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Pickup',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                          Text(
+                            delivery['pickup_location'] ?? '',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const Padding(
-                    padding: EdgeInsets.only(left: 6),
-                    child: SizedBox(
-                      height: 24,
-                      child: VerticalDivider(color: Colors.grey),
-                    ),
-                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       const Icon(
@@ -397,32 +208,25 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                         size: 14,
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Drop-off',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                            Text(
-                              delivery['dropoff'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Drop-off',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                          Text(
+                            delivery['delivery_location'] ?? '',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Map Placeholder
             Container(
               width: double.infinity,
               height: 180,
@@ -444,23 +248,31 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                       ),
                     ),
                     Text(
-                      'Google Maps will be integrated here',
+                      'Google Maps coming soon',
                       style: TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                   ],
                 ),
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // Update Status Button
             SizedBox(
               width: double.infinity,
               height: 55,
               child: ElevatedButton.icon(
-                onPressed: _showStatusUpdate,
-                icon: const Icon(Icons.update, color: Colors.white),
+                onPressed: _isUpdating
+                    ? null
+                    : () => _showStatusUpdate(deliveryId),
+                icon: _isUpdating
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.update, color: Colors.white),
                 label: const Text(
                   'Update Delivery Status',
                   style: TextStyle(
@@ -477,15 +289,19 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // Verification Button
             SizedBox(
               width: double.infinity,
               height: 55,
               child: ElevatedButton.icon(
-                onPressed: _showVerificationUpload,
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Camera opened for verification!'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.camera_alt, color: Colors.white),
                 label: const Text(
                   'Upload Delivery Verification',
@@ -503,7 +319,6 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
           ],
         ),

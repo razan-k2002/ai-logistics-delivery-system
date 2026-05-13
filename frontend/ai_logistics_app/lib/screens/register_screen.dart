@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -13,26 +14,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-  String _selectedRole = 'customer'; // default role
+  String _selectedRole = 'customer';
 
-  void _register() {
+  void _register() async {
+    if (_nameController.text.isEmpty ||
+        _emailController.text.isEmpty ||
+        _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all fields!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
-    // TODO: connect to your friend's API later
-    Future.delayed(const Duration(seconds: 1), () {
-      setState(() => _isLoading = false);
+    final result = await ApiService.register(
+      _nameController.text.trim(),
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+      _selectedRole,
+    );
 
-      // After register, go to login
-      Navigator.pushReplacementNamed(context, '/login');
+    setState(() => _isLoading = false);
 
-      // Show success message
+    if (result['success']) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Account created! Please login.'),
           backgroundColor: Colors.green,
         ),
       );
-    });
+      Navigator.pushReplacementNamed(context, '/login');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
@@ -46,16 +66,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
-
-              // Back button
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: const Icon(Icons.arrow_back, size: 28),
               ),
-
               const SizedBox(height: 24),
-
-              // Title
               const Icon(Icons.local_shipping, size: 60, color: Colors.orange),
               const SizedBox(height: 16),
               const Text(
@@ -66,10 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 'Register to get started',
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
-
               const SizedBox(height: 32),
-
-              // Name Field
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -81,8 +93,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Email Field
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -95,8 +105,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Password Field
               TextField(
                 controller: _passwordController,
                 obscureText: !_isPasswordVisible,
@@ -109,11 +117,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ? Icons.visibility
                           : Icons.visibility_off,
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _isPasswordVisible = !_isPasswordVisible;
-                      });
-                    },
+                    onPressed: () => setState(
+                      () => _isPasswordVisible = !_isPasswordVisible,
+                    ),
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -121,22 +127,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Role Selection
               const Text(
                 'I am a:',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-
               Row(
                 children: [
-                  // Customer Option
                   Expanded(
                     child: GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedRole = 'customer');
-                      },
+                      onTap: () => setState(() => _selectedRole = 'customer'),
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -174,15 +174,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 16),
-
-                  // Driver Option
                   Expanded(
                     child: GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedRole = 'driver');
-                      },
+                      onTap: () => setState(() => _selectedRole = 'driver'),
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -222,10 +217,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 32),
-
-              // Register Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -249,18 +241,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
-              // Login Link
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text("Already have an account? "),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/login');
-                    },
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/login'),
                     child: const Text(
                       'Login',
                       style: TextStyle(
@@ -271,7 +259,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 20),
             ],
           ),

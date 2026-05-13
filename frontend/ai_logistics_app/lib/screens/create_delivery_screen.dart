@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class CreateDeliveryScreen extends StatefulWidget {
   const CreateDeliveryScreen({super.key});
@@ -10,16 +11,12 @@ class CreateDeliveryScreen extends StatefulWidget {
 class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
   final _pickupController = TextEditingController();
   final _dropoffController = TextEditingController();
-  final _packageDetailsController = TextEditingController();
   String _selectedPackageType = 'Small';
   bool _isLoading = false;
-
   final List<String> _packageTypes = ['Small', 'Medium', 'Large', 'Fragile'];
 
-  void _submitDelivery() {
-    if (_pickupController.text.isEmpty ||
-        _dropoffController.text.isEmpty ||
-        _packageDetailsController.text.isEmpty) {
+  void _submitDelivery() async {
+    if (_pickupController.text.isEmpty || _dropoffController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please fill all fields!'),
@@ -31,11 +28,17 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
 
     setState(() => _isLoading = true);
 
-    // TODO: connect to your friend's API later
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() => _isLoading = false);
+    final result = await ApiService.createDelivery(
+      pickupLocation: _pickupController.text.trim(),
+      deliveryLocation: _dropoffController.text.trim(),
+      customerId: 1,
+    );
 
-      // Show success then go back to home
+    setState(() => _isLoading = false);
+
+    if (result['success']) {
+      final delivery = result['data']['delivery'];
+      final route = result['data']['optimized_route'];
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -53,34 +56,33 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              const Text(
-                'A driver will be assigned to your delivery shortly.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
+              Text(
+                'Delivery ID: #DEL00${delivery['id']}',
+                style: const TextStyle(color: Colors.grey),
               ),
-              const SizedBox(height: 16),
-              // Show estimated time
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.access_time, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Text(
-                      'Estimated Time: 30-45 mins',
-                      style: TextStyle(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
+              const SizedBox(height: 8),
+              if (route != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.access_time, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Text(
+                        'ETA: ${route['total_duration_minutes']?.toStringAsFixed(0)} mins',
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -105,7 +107,11 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
           ),
         ),
       );
-    });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
@@ -128,7 +134,6 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Info Banner
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -142,17 +147,14 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'AI will automatically assign the best driver and optimize the route for you!',
+                      'AI will automatically assign the best driver and optimize the route!',
                       style: TextStyle(color: Colors.orange),
                     ),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // Pickup Location
             const Text(
               'Pickup Location',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -175,10 +177,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Dropoff Location
             const Text(
               'Drop-off Location',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -201,10 +200,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Package Type
             const Text(
               'Package Type',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -215,9 +211,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 final isSelected = _selectedPackageType == type;
                 return Expanded(
                   child: GestureDetector(
-                    onTap: () {
-                      setState(() => _selectedPackageType = type);
-                    },
+                    onTap: () => setState(() => _selectedPackageType = type),
                     child: Container(
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -242,32 +236,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 );
               }).toList(),
             ),
-
-            const SizedBox(height: 16),
-
-            // Package Details
-            const Text(
-              'Package Details',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _packageDetailsController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Describe your package (e.g. Books, Electronics...)',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-
             const SizedBox(height: 24),
-
-            // AI Route Info Card
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -286,7 +255,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                     children: [
                       Icon(Icons.route, color: Colors.orange),
                       SizedBox(width: 8),
-                      Text('Fastest route will be calculated automatically'),
+                      Text('Fastest route calculated automatically'),
                     ],
                   ),
                   SizedBox(height: 8),
@@ -294,7 +263,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                     children: [
                       Icon(Icons.person_pin, color: Colors.orange),
                       SizedBox(width: 8),
-                      Text('Best available driver will be assigned'),
+                      Text('Best available driver assigned by AI'),
                     ],
                   ),
                   SizedBox(height: 8),
@@ -302,16 +271,13 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                     children: [
                       Icon(Icons.timer, color: Colors.orange),
                       SizedBox(width: 8),
-                      Text('ETA will be estimated using AI'),
+                      Text('ETA estimated using AI'),
                     ],
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // Submit Button
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -342,7 +308,6 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                       ),
               ),
             ),
-
             const SizedBox(height: 20),
           ],
         ),

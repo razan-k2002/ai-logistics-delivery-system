@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,25 +14,44 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
-  void _login() {
+  void _login() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all fields!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
-    // TODO: connect to your friend's API later
-    // For now we simulate login with role checking
-    String email = _emailController.text.trim();
+    // Call the real API
+    final result = await ApiService.login(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
 
-    Future.delayed(const Duration(seconds: 1), () {
-      setState(() => _isLoading = false);
+    setState(() => _isLoading = false);
 
-      // Temporary role routing for testing
-      if (email.contains('admin')) {
+    if (result['success']) {
+      final data = result['data'];
+      final role = data['user']['role'];
+
+      // Navigate based on role from API
+      if (role == 'admin') {
         Navigator.pushReplacementNamed(context, '/admin');
-      } else if (email.contains('driver')) {
+      } else if (role == 'driver') {
         Navigator.pushReplacementNamed(context, '/driver');
       } else {
         Navigator.pushReplacementNamed(context, '/customer');
       }
-    });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
