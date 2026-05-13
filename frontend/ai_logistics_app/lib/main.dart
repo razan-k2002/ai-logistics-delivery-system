@@ -1,0 +1,42 @@
+import 'package:flutter/material.dart';
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/customer_home_screen.dart';
+import 'screens/create_delivery_screen.dart';
+import 'screens/track_delivery_screen.dart';
+import 'screens/driver_home_screen.dart';
+import 'screens/delivery_details_screen.dart';
+import 'screens/admin_home_screen.dart';
+import 'screens/notifications_screen.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'AI Logistics Delivery',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        useMaterial3: true,
+      ),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/customer': (context) => const CustomerHomeScreen(),
+        '/create-delivery': (context) => const CreateDeliveryScreen(),
+        '/track-delivery': (context) => const TrackDeliveryScreen(),
+        '/driver': (context) => const DriverHomeScreen(),
+        '/delivery-details': (context) => const DeliveryDetailsScreen(),
+        '/admin': (context) => const AdminHomeScreen(),
+        '/notifications': (context) => const NotificationsScreen(),
+      },
+    );
+  }
+}

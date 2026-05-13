@@ -1,16 +1,29 @@
-# ai_logistics_app
+# AI-Driven Logistics & Delivery Management System
 
-A new Flutter project.
+## Overview
+This project is a master's-level system designed to optimize last-mile delivery using AI-based decision support tools.
 
-## Getting Started
+## Roles
+- Customer
+- Driver
+- Admin
 
-This project is a starting point for a Flutter application.
+## Core Features
+- Authentication
+- Order Management
+- Driver Assignment
+- Real-time Tracking
+- Notifications
+- Admin Dashboard
 
-A few resources to get you started if this is your first Flutter project:
+## Intelligent Features
+- Adaptive Route Optimization
+- Smart ETA Prediction
+- OCR-Based Delivery Verification
+- Driver Performance Analysis
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Tech Stack
+- Flutter
+- Node.js
+- PostgreSQL
+- Python (AI models)
