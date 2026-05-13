@@ -1,15 +1,18 @@
 const pool = require("../config/db");
 const axios = require("axios");
+const crypto = require("crypto");
 // CREATE DELIVERY
 exports.createDelivery = async (req, res) => {
     try {
         const { pickup_location, delivery_location, customer_id, pickup_coords, delivery_coords } = req.body;
 
+        const tracking_id = "TRK-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+
         const result = await pool.query(
-            `INSERT INTO deliveries (pickup_location, delivery_location, customer_id, status)
-             VALUES ($1,$2,$3,'pending')
-             RETURNING *`,
-            [pickup_location, delivery_location, customer_id]
+            `INSERT INTO deliveries (pickup_location, delivery_location, customer_id, status, tracking_id)
+            VALUES ($1,$2,$3,'pending',$4)
+            RETURNING *`,
+            [pickup_location, delivery_location, customer_id, tracking_id]
         );
 
         const delivery = result.rows[0];
@@ -236,6 +239,42 @@ exports.trackDelivery = async (req, res) => {
                 vehicle_type: delivery.vehicle_type,
                 license_number: delivery.license_number
             } : null
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+};
+// VERIFY DELIVERY BY TRACKING ID
+exports.verifyDelivery = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { scanned_id } = req.body;
+
+        const result = await pool.query(
+            "SELECT * FROM deliveries WHERE id=$1",
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Delivery not found" });
+        }
+
+        const delivery = result.rows[0];
+
+        if (delivery.tracking_id !== scanned_id) {
+            return res.status(400).json({ 
+                verified: false,
+                error: "Scanned ID does not match delivery tracking ID" 
+            });
+        }
+
+        res.json({
+            verified: true,
+            message: "Delivery verified successfully",
+            delivery_id: delivery.id,
+            tracking_id: delivery.tracking_id
         });
 
     } catch (error) {
