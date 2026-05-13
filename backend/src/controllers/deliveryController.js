@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const axios = require("axios");
 const crypto = require("crypto");
+const { sendNotification } = require("../utils/notifications");
 // CREATE DELIVERY
 exports.createDelivery = async (req, res) => {
     try {
@@ -117,7 +118,18 @@ exports.assignDriver = async (req, res) => {
             "UPDATE drivers SET availability_status=false WHERE id=$1",
             [driver_id]
         );
-
+        // Notify customer
+        const customer = await pool.query(
+            "SELECT fcm_token FROM users WHERE id=$1",
+            [delivery.rows[0].customer_id]
+        );
+        if (customer.rows[0].fcm_token) {
+            await sendNotification(
+                customer.rows[0].fcm_token,
+                "Driver Assigned! 🚗",
+                "Your delivery is now in progress. Your driver is on the way!"
+            );
+        }
         res.json({
             message: "Driver assigned successfully",
             delivery: result.rows[0]
@@ -180,7 +192,25 @@ const result = await pool.query(
                 );
             }
         }
-
+// Notify customer
+        const customer = await pool.query(
+            "SELECT fcm_token FROM users WHERE id=$1",
+            [result.rows[0].customer_id]
+        );
+        if (customer.rows[0].fcm_token && status === "delivered") {
+            await sendNotification(
+                customer.rows[0].fcm_token,
+                "Delivery Complete! 📦",
+                "Your package has been delivered successfully!"
+            );
+        }
+        if (customer.rows[0].fcm_token && status === "cancelled") {
+            await sendNotification(
+                customer.rows[0].fcm_token,
+                "Delivery Cancelled ❌",
+                "Unfortunately your delivery has been cancelled."
+            );
+        }
         res.json({
             message: "Delivery status updated successfully",
             delivery: result.rows[0]

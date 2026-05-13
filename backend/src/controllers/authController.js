@@ -66,3 +66,21 @@ exports.login = async (req, res) => {
         res.status(500).json({ error: "Login failed" });
     }
 };
+// SAVE FCM TOKEN
+exports.saveFcmToken = async (req, res) => {
+    try {
+        const { fcm_token } = req.body;
+        const user_id = req.user.id;
+
+        await pool.query(
+            "UPDATE users SET fcm_token=$1 WHERE id=$2",
+            [fcm_token, user_id]
+        );
+
+        res.json({ message: "FCM token saved successfully" });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+};
