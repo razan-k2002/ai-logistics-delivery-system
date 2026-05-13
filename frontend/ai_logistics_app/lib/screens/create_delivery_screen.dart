@@ -35,6 +35,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     );
 
     setState(() => _isLoading = false);
+    if (!mounted) return;
 
     if (result['success']) {
       final delivery = result['data']['delivery'];
@@ -65,7 +66,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -137,9 +138,9 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 children: [

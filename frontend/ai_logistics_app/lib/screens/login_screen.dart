@@ -34,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     setState(() => _isLoading = false);
+    if (!mounted) return;
 
     if (result['success']) {
       final data = result['data'];

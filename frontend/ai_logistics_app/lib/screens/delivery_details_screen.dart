@@ -22,6 +22,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
   void _updateStatus(String newStatus, int deliveryId) async {
     setState(() => _isUpdating = true);
     final result = await ApiService.updateDeliveryStatus(deliveryId, newStatus);
+    if (!mounted) return;
     setState(() {
       _isUpdating = false;
       if (result['success']) {
@@ -68,7 +69,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.orange.withOpacity(0.1)
+                          ? Colors.orange.withValues(alpha: 0.1)
                           : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(

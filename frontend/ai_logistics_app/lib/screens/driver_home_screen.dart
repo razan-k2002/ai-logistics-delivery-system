@@ -110,7 +110,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         ),
                       );
                     },
-                    activeColor: Colors.white,
+                    activeThumbColor: Colors.white,
                   ),
                 ],
               ),
@@ -164,7 +164,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                     decoration: BoxDecoration(
                                       color: _getStatusColor(
                                         status,
-                                      ).withOpacity(0.1),
+                                      ).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(

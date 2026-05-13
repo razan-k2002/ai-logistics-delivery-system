@@ -107,7 +107,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: Colors.orange.withOpacity(0.1),
+              color: Colors.orange.withValues(alpha: 0.1),
               child: Text(
                 'You have $unreadCount unread notifications',
                 style: const TextStyle(
@@ -154,16 +154,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           decoration: BoxDecoration(
                             color: notification['isRead']
                                 ? Colors.white
-                                : Colors.orange.withOpacity(0.05),
+                                : Colors.orange.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: notification['isRead']
                                   ? Colors.transparent
-                                  : Colors.orange.withOpacity(0.3),
+                                  : Colors.orange.withValues(alpha: 0.3),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.08),
+                                color: Colors.grey.withValues(alpha: 0.08),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -176,7 +176,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: notification['color'].withOpacity(0.1),
+                                  color: notification['color'].withValues(
+                                    alpha: 0.1,
+                                  ),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(

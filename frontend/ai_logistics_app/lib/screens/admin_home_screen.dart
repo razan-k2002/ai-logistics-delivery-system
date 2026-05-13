@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -305,8 +304,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: user['role'] == 'driver'
-                                    ? Colors.blue.withOpacity(0.1)
-                                    : Colors.orange.withOpacity(0.1),
+                                    ? Colors.blue.withValues(alpha: 0.1)
+                                    : Colors.orange.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -327,8 +326,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: user['status'] == 'Active'
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.red.withOpacity(0.1),
+                                    ? Colors.green.withValues(alpha: 0.1)
+                                    : Colors.red.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -419,7 +418,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: delivery['statusColor'].withOpacity(0.1),
+                          color: delivery['statusColor'].withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -683,7 +682,7 @@ class _ActivityItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 20),
