@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Base URL - 10.0.2.2 is localhost for Android emulator
-  static const String baseUrl = 'http:10.0.2.2//:3000';
+  // For Android emulator use: http://10.0.2.2:3000
+  // For real device use: http://192.168.0.111:3000
+  static const String baseUrl = 'http://10.0.2.2:3000';
 
   // Store token after login
   static String? token;
@@ -83,6 +84,30 @@ class ApiService {
         'success': false,
         'message': 'Connection error. Is the server running?',
       };
+    }
+  }
+
+  // Save FCM Token (for push notifications)
+  static Future<Map<String, dynamic>> saveFcmToken(String fcmToken) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/auth/fcm-token'),
+        headers: authHeaders,
+        body: jsonEncode({'fcm_token': fcmToken}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to save FCM token',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error.'};
     }
   }
 
@@ -220,6 +245,33 @@ class ApiService {
     }
   }
 
+  // Verify Delivery by Tracking ID (OCR)
+  static Future<Map<String, dynamic>> verifyDelivery(
+    int deliveryId,
+    String scannedId,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/deliveries/$deliveryId/verify'),
+        headers: authHeaders,
+        body: jsonEncode({'scanned_id': scannedId}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Verification failed',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error.'};
+    }
+  }
+
   // ==================== DRIVERS ====================
 
   // Get Driver Deliveries
@@ -238,6 +290,29 @@ class ApiService {
         return {
           'success': false,
           'message': data['message'] ?? 'Failed to get deliveries',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error.'};
+    }
+  }
+
+  // Get Driver Performance
+  static Future<Map<String, dynamic>> getDriverPerformance(int driverId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/drivers/$driverId/performance'),
+        headers: authHeaders,
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to get performance',
         };
       }
     } catch (e) {
