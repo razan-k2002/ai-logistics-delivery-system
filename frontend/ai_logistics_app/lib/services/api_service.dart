@@ -3,8 +3,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // For Android emulator use: http://10.0.2.2:3000
-  // For real device use: http://192.168.0.111:3000
-  static const String baseUrl = 'http://10.0.2.2:3000';
+  static const String baseUrl = 'http://192.168.0.112:3000';
 
   // Store token after login
   static String? token;
@@ -24,9 +23,9 @@ class ApiService {
 
   // Login
   static Future<Map<String, dynamic>> login(
-    String email,
-    String password,
-  ) async {
+      String email,
+      String password,
+      ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/login'),
@@ -52,11 +51,11 @@ class ApiService {
 
   // Register
   static Future<Map<String, dynamic>> register(
-    String name,
-    String email,
-    String password,
-    String role,
-  ) async {
+      String name,
+      String email,
+      String password,
+      String role,
+      ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/register'),
@@ -193,9 +192,9 @@ class ApiService {
 
   // Update Delivery Status
   static Future<Map<String, dynamic>> updateDeliveryStatus(
-    int id,
-    String status,
-  ) async {
+      int id,
+      String status,
+      ) async {
     try {
       final response = await http.patch(
         Uri.parse('$baseUrl/api/deliveries/$id/status'),
@@ -220,9 +219,9 @@ class ApiService {
 
   // Assign Driver to Delivery
   static Future<Map<String, dynamic>> assignDriver(
-    int deliveryId,
-    int driverId,
-  ) async {
+      int deliveryId,
+      int driverId,
+      ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/deliveries/$deliveryId/assign'),
@@ -247,9 +246,9 @@ class ApiService {
 
   // Verify Delivery by Tracking ID (OCR)
   static Future<Map<String, dynamic>> verifyDelivery(
-    int deliveryId,
-    String scannedId,
-  ) async {
+      int deliveryId,
+      String scannedId,
+      ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/deliveries/$deliveryId/verify'),
