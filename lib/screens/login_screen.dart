@@ -14,26 +14,13 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
+  get result => null;
+
   void _login() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all fields!'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    final result = await ApiService.login(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
+    // DEBUG - show what's happening
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Result: ${result.toString()}')),
     );
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
 
     if (result['success']) {
       final data = result['data'];
@@ -46,15 +33,13 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/customer');
       }
     } else {
-      // TEST MODE - works without backend
-      final email = _emailController.text.trim();
-      if (email.contains('admin')) {
-        Navigator.pushReplacementNamed(context, '/admin');
-      } else if (email.contains('driver')) {
-        Navigator.pushReplacementNamed(context, '/driver');
-      } else {
-        Navigator.pushReplacementNamed(context, '/customer');
-      }
+      // Remove TEST MODE - just show the error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Login failed'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
