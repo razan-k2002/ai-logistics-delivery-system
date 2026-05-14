@@ -8,6 +8,7 @@ import 'screens/driver_home_screen.dart';
 import 'screens/delivery_details_screen.dart';
 import 'screens/admin_home_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,8 +26,9 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
         useMaterial3: true,
       ),
-      initialRoute: '/login',
+      initialRoute: '/splash',
       routes: {
+        '/splash': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/customer': (context) => const CustomerHomeScreen(),
