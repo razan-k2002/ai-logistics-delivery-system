@@ -3,12 +3,11 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // For Android emulator use: http://10.0.2.2:3000
-  static const String baseUrl = 'http://192.168.0.112:3000';
+  static const String baseUrl = 'http://192.168.0.111:3000';
 
   // Store token after login
   static String? token;
 
-  // Headers without token (for login/register)
   static Map<String, String> get publicHeaders => {
     'Content-Type': 'application/json',
   };

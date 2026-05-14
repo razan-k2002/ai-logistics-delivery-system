@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // Razan's PC:     http://192.168.0.112:3000
-  // Zainab's PC:  http://192.168.10.77:3000
+  // Teammate's PC:  http://192.168.10.77:3000
   // Android Emulator: http://10.0.2.2:3000
   static const String baseUrl = 'http://192.168.0.112:3000';
 

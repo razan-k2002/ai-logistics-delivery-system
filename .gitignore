@@ -187,3 +187,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 >>>>>>> 438909e0ac4fb62389b11256427f5586715eed50
+backend/.env
+backend/firebase-service-account.json

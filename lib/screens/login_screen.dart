@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-
+import '../services/storage_service.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -17,29 +17,63 @@ class _LoginScreenState extends State<LoginScreen> {
   get result => null;
 
   void _login() async {
-    // DEBUG - show what's happening
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Result: ${result.toString()}')),
-    );
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
-    if (result['success']) {
-      final data = result['data'];
-      final role = data['user']['role'];
-      if (role == 'admin') {
-        Navigator.pushReplacementNamed(context, '/admin');
-      } else if (role == 'driver') {
-        Navigator.pushReplacementNamed(context, '/driver');
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter email and password')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // 1. CALL THE ACTUAL API SERVICE
+      final result = await ApiService.login(email, password);
+
+      if (result != null && result['success'] == true) {
+        final data = result['data'];
+        final user = data['user'];
+        final role = user['role'];
+
+        // 2. Save login data persistently
+        await StorageService.saveLoginData(
+          token: data['token'],
+          role: role,
+          name: user['name'],
+          email: user['email'],
+          userId: user['id'],
+        );
+
+        // 3. Navigate based on role
+        if (role == 'admin') {
+          Navigator.pushReplacementNamed(context, '/admin');
+        } else if (role == 'driver') {
+          Navigator.pushReplacementNamed(context, '/driver');
+        } else {
+          Navigator.pushReplacementNamed(context, '/customer');
+        }
       } else {
-        Navigator.pushReplacementNamed(context, '/customer');
+        // Show error message from server
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result?['message'] ?? 'Login failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-    } else {
-      // Remove TEST MODE - just show the error
+    } catch (e) {
+      // Catch network errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? 'Login failed'),
+          content: Text('Connection error: Check if server is running'),
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
