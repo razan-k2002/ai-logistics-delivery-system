@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -9,6 +10,20 @@ class AdminHomeScreen extends StatefulWidget {
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _selectedIndex = 0;
+
+  Map<String, dynamic> _stats = {
+    'total_deliveries': '0',
+    'pending': '0',
+    'in_progress': '0',
+    'delivered': '0',
+    'cancelled': '0',
+    'available_drivers': '0',
+    'total_customers': '0',
+  };
+  bool _loadingStats = true;
+
+  List<Map<String, dynamic>> _deliveries = [];
+  bool _loadingDeliveries = true;
 
   final List<Map<String, dynamic>> _users = [
     {
@@ -37,44 +52,70 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     },
   ];
 
-  final List<Map<String, dynamic>> _deliveries = [
-    {
-      'id': '#DEL001',
-      'customer': 'Sarah Johnson',
-      'driver': 'Ali Hassan',
-      'status': 'In Transit',
-      'statusColor': Colors.blue,
-      'pickup': '123 Main St',
-      'dropoff': '456 Oak Ave',
-    },
-    {
-      'id': '#DEL002',
-      'customer': 'Emma Davis',
-      'driver': 'Unassigned',
-      'status': 'Pending',
-      'statusColor': Colors.orange,
-      'pickup': '789 Pine Rd',
-      'dropoff': '321 Elm St',
-    },
-    {
-      'id': '#DEL003',
-      'customer': 'John Lee',
-      'driver': 'Mike Smith',
-      'status': 'Delivered',
-      'statusColor': Colors.green,
-      'pickup': '555 Maple Dr',
-      'dropoff': '888 Cedar Ln',
-    },
-    {
-      'id': '#DEL004',
-      'customer': 'Anna White',
-      'driver': 'Unassigned',
-      'status': 'Pending',
-      'statusColor': Colors.orange,
-      'pickup': '222 Oak St',
-      'dropoff': '999 Pine Ave',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+    _loadDeliveries();
+  }
+
+  void _loadStats() async {
+    final result = await ApiService.getAdminDashboard();
+    if (result['success']) {
+      setState(() {
+        _stats = result['data']['stats'];
+        _loadingStats = false;
+      });
+    } else {
+      setState(() => _loadingStats = false);
+    }
+  }
+
+  void _loadDeliveries() async {
+    // We'll use a list of recent delivery IDs to fetch
+    // For now fetch deliveries 1-10 and filter valid ones
+    List<Map<String, dynamic>> loaded = [];
+    for (int i = 1; i <= 15; i++) {
+      final result = await ApiService.getDelivery(i);
+      if (result['success'] && result['data'] != null) {
+        loaded.add(result['data']);
+      }
+    }
+    setState(() {
+      _deliveries = loaded;
+      _loadingDeliveries = false;
+    });
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'in_progress':
+        return Colors.blue;
+      case 'pending':
+        return Colors.orange;
+      case 'delivered':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'in_progress':
+        return 'In Transit';
+      case 'pending':
+        return 'Pending';
+      case 'delivered':
+        return 'Delivered';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +202,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ),
           const SizedBox(height: 12),
 
-          GridView.count(
+          _loadingStats
+              ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+              : GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -170,26 +213,26 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             childAspectRatio: 1.5,
             children: [
               _StatCard(
-                title: 'Total Users',
-                value: '24',
+                title: 'Total Customers',
+                value: _stats['total_customers'].toString(),
                 icon: Icons.people,
                 color: Colors.blue,
               ),
               _StatCard(
-                title: 'Active Drivers',
-                value: '8',
+                title: 'Available Drivers',
+                value: _stats['available_drivers'].toString(),
                 icon: Icons.drive_eta,
                 color: Colors.green,
               ),
               _StatCard(
                 title: 'Total Deliveries',
-                value: '156',
+                value: _stats['total_deliveries'].toString(),
                 icon: Icons.local_shipping,
                 color: Colors.orange,
               ),
               _StatCard(
                 title: 'Pending',
-                value: '12',
+                value: _stats['pending'].toString(),
                 icon: Icons.pending,
                 color: Colors.red,
               ),
@@ -197,6 +240,38 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ),
 
           const SizedBox(height: 24),
+
+          // Summary Row
+          if (!_loadingStats) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _SummaryCard(
+                    label: 'In Progress',
+                    value: _stats['in_progress'].toString(),
+                    color: Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _SummaryCard(
+                    label: 'Delivered',
+                    value: _stats['delivered'].toString(),
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _SummaryCard(
+                    label: 'Cancelled',
+                    value: _stats['cancelled'].toString(),
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // Recent Activity
           const Text(
@@ -209,29 +284,29 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             icon: Icons.person_add,
             color: Colors.blue,
             title: 'New user registered',
-            subtitle: 'Sarah Johnson joined as customer',
-            time: '5 mins ago',
+            subtitle: 'A new customer joined the system',
+            time: 'Recent',
           ),
           _ActivityItem(
             icon: Icons.local_shipping,
             color: Colors.orange,
             title: 'New delivery request',
-            subtitle: 'DEL004 - Waiting for driver assignment',
-            time: '12 mins ago',
+            subtitle: 'Waiting for driver assignment',
+            time: 'Recent',
           ),
           _ActivityItem(
             icon: Icons.check_circle,
             color: Colors.green,
             title: 'Delivery completed',
-            subtitle: 'DEL003 delivered successfully',
-            time: '30 mins ago',
+            subtitle: 'Package delivered successfully',
+            time: 'Recent',
           ),
           _ActivityItem(
             icon: Icons.route,
             color: Colors.purple,
             title: 'Route optimized by AI',
-            subtitle: 'DEL001 route updated for faster delivery',
-            time: '45 mins ago',
+            subtitle: 'Route updated for faster delivery',
+            time: 'Recent',
           ),
         ],
       ),
@@ -245,7 +320,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Search Bar
           TextField(
             decoration: InputDecoration(
               hintText: 'Search users...',
@@ -271,11 +345,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               child: Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: user['role'] == 'driver'
-                        ? Colors.blue
-                        : Colors.orange,
+                    backgroundColor:
+                    user['role'] == 'driver' ? Colors.blue : Colors.orange,
                     child: Icon(
-                      user['role'] == 'driver' ? Icons.drive_eta : Icons.person,
+                      user['role'] == 'driver'
+                          ? Icons.drive_eta
+                          : Icons.person,
                       color: Colors.white,
                     ),
                   ),
@@ -374,12 +449,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   // Deliveries Tab
   Widget _buildDeliveries() {
+    if (_loadingDeliveries) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.orange),
+      );
+    }
+
+    if (_deliveries.isEmpty) {
+      return const Center(child: Text('No deliveries found.'));
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Search Bar
           TextField(
             decoration: InputDecoration(
               hintText: 'Search deliveries...',
@@ -395,6 +479,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           const SizedBox(height: 16),
 
           ..._deliveries.map((delivery) {
+            final status = delivery['status'] ?? 'pending';
+            final driverId = delivery['driver_id'];
+
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
@@ -409,7 +496,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        delivery['id'],
+                        '#DEL${delivery['id'].toString().padLeft(3, '0')}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Container(
@@ -418,13 +505,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: delivery['statusColor'].withValues(alpha: 0.1),
+                          color: _statusColor(status).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          delivery['status'],
+                          _statusLabel(status),
                           style: TextStyle(
-                            color: delivery['statusColor'],
+                            color: _statusColor(status),
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -435,25 +522,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.person, color: Colors.grey, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Customer: ${delivery['customer']}',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
                       const Icon(Icons.drive_eta, color: Colors.grey, size: 14),
                       const SizedBox(width: 4),
                       Text(
-                        'Driver: ${delivery['driver']}',
+                        driverId != null
+                            ? 'Driver ID: $driverId'
+                            : 'Unassigned',
                         style: TextStyle(
-                          color: delivery['driver'] == 'Unassigned'
-                              ? Colors.red
-                              : Colors.grey,
+                          color:
+                          driverId != null ? Colors.grey : Colors.red,
                         ),
                       ),
                     ],
@@ -465,7 +542,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          delivery['pickup'],
+                          delivery['pickup_location'] ?? '',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
@@ -482,13 +559,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          delivery['dropoff'],
+                          delivery['delivery_location'] ?? '',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
                     ],
                   ),
-                  if (delivery['driver'] == 'Unassigned') ...[
+                  if (driverId == null && status == 'pending') ...[
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -523,7 +600,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  void _showAssignDriver(String deliveryId) {
+  void _showAssignDriver(int deliveryId) {
     final drivers = _users.where((user) => user['role'] == 'driver').toList();
 
     showModalBottomSheet(
@@ -539,7 +616,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Assign Driver to $deliveryId',
+                'Assign Driver to #DEL${deliveryId.toString().padLeft(3, '0')}',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -548,16 +625,29 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               const SizedBox(height: 16),
               ...drivers.map((driver) {
                 return GestureDetector(
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          '${driver['name']} assigned to $deliveryId',
+                    // For now using driver index as ID — will be replaced with real driver IDs
+                    final result = await ApiService.assignDriver(deliveryId, 1);
+                    if (result['success']) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${driver['name']} assigned successfully!',
+                          ),
+                          backgroundColor: Colors.green,
                         ),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+                      );
+                      _loadDeliveries(); // Refresh list
+                      _loadStats(); // Refresh stats
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(result['message'] ?? 'Failed to assign driver'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 8),
@@ -646,6 +736,43 @@ class _StatCard extends StatelessWidget {
             ),
           ),
           Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+// Summary Card
+class _SummaryCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(label, style: TextStyle(color: color, fontSize: 11)),
         ],
       ),
     );
