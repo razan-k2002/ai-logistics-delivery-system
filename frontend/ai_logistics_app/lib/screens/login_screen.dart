@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,10 +35,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
     setState(() => _isLoading = false);
-
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('API result: ${result.toString()}')),
+    );
     if (result['success']) {
       final data = result['data'];
-      final role = data['user']['role'];
+      final user = data['user'];
+      final role = user['role'];
+
+      // Save login data persistently
+      await StorageService.saveLoginData(
+        token: data['token'],
+        role: role,
+        name: user['name'],
+        email: user['email'],
+        userId: user['id'],
+      );
+
       if (role == 'admin') {
         Navigator.pushReplacementNamed(context, '/admin');
       } else if (role == 'driver') {
@@ -45,17 +59,14 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         Navigator.pushReplacementNamed(context, '/customer');
       }
-    } else {
-      // TEST MODE - works without backend
-      final email = _emailController.text.trim();
-      if (email.contains('admin')) {
-        Navigator.pushReplacementNamed(context, '/admin');
-      } else if (email.contains('driver')) {
-        Navigator.pushReplacementNamed(context, '/driver');
-      } else {
-        Navigator.pushReplacementNamed(context, '/customer');
-      }
-    }
+    }else {
+  ScaffoldMessenger.of(context).showSnackBar(
+  SnackBar(
+  content: Text(result['message'] ?? 'Login failed'),
+  backgroundColor: Colors.red,
+  ),
+  );
+  }
   }
 
   @override
