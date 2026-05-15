@@ -16,9 +16,19 @@ exports.register = async (req, res) => {
             [name, email, hashedPassword, role]
         );
 
+        const user = result.rows[0];
+
+        // If registering as driver, add to drivers table
+        if (role === 'driver') {
+            await pool.query(
+                "INSERT INTO drivers (user_id, availability_status) VALUES ($1, true)",
+                [user.id]
+            );
+        }
+
         res.json({
             message: "User registered successfully",
-            user: result.rows[0]
+            user
         });
 
     } catch (error) {
