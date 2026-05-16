@@ -312,3 +312,19 @@ exports.verifyDelivery = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+// GET CUSTOMER DELIVERIES
+exports.getCustomerDeliveries = async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        const result = await pool.query(
+            `SELECT * FROM deliveries 
+             WHERE customer_id = $1 
+             ORDER BY created_at DESC`,
+            [customerId]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+};

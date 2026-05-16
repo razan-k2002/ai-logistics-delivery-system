@@ -9,9 +9,12 @@ class DeliveryDetailsScreen extends StatefulWidget {
 }
 
 class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
-  late String _currentStatus;
+  String _currentStatus = '';
+  int _deliveryId = 0;
+  Map<String, dynamic> _delivery = {};
   bool _isUpdating = false;
   bool _isVerified = false;
+  bool _initialized = false;
   final _trackingIdController = TextEditingController();
 
   final List<String> _statusOptions = [
@@ -20,6 +23,26 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
     'delivered',
     'cancelled',
   ];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null && args is Map<String, dynamic>) {
+        _delivery = args;
+        _deliveryId = _delivery['id'] ?? 0;
+        _currentStatus = _delivery['status'] ?? 'pending';
+      }
+      _initialized = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _trackingIdController.dispose();
+    super.dispose();
+  }
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
@@ -51,9 +74,9 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
     }
   }
 
-  void _updateStatus(String newStatus, int deliveryId) async {
+  void _updateStatus(String newStatus) async {
     setState(() => _isUpdating = true);
-    final result = await ApiService.updateDeliveryStatus(deliveryId, newStatus);
+    final result = await ApiService.updateDeliveryStatus(_deliveryId, newStatus);
     if (!mounted) return;
     setState(() {
       _isUpdating = false;
@@ -66,7 +89,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
       SnackBar(
         content: Text(
           result['success']
-              ? 'Status updated to ${_getStatusLabel(newStatus)}'
+              ? 'Status updated to ${_getStatusLabel(newStatus)} ✅'
               : result['message'] ?? 'Failed to update status',
         ),
         backgroundColor: result['success'] ? Colors.green : Colors.red,
@@ -74,7 +97,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
     );
   }
 
-  void _showStatusUpdate(int deliveryId) {
+  void _showStatusUpdate() {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -95,18 +118,19 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
               ..._statusOptions.map((status) {
                 final isSelected = _currentStatus == status;
                 return GestureDetector(
-                  onTap: () => _updateStatus(status, deliveryId),
+                  onTap: () => _updateStatus(status),
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.orange.withValues(alpha: 0.1)
+                          ? _getStatusColor(status).withValues(alpha: 0.1)
                           : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color:
-                        isSelected ? Colors.orange : Colors.transparent,
+                        color: isSelected
+                            ? _getStatusColor(status)
+                            : Colors.transparent,
                       ),
                     ),
                     child: Row(
@@ -115,7 +139,9 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                           isSelected
                               ? Icons.radio_button_checked
                               : Icons.radio_button_off,
-                          color: isSelected ? Colors.orange : Colors.grey,
+                          color: isSelected
+                              ? _getStatusColor(status)
+                              : Colors.grey,
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -124,7 +150,9 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,
-                            color: isSelected ? Colors.orange : Colors.black,
+                            color: isSelected
+                                ? _getStatusColor(status)
+                                : Colors.black,
                           ),
                         ),
                       ],
@@ -139,7 +167,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
     );
   }
 
-  void _showVerification(int deliveryId) {
+  void _showVerification() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -164,14 +192,13 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Scan or enter the package tracking ID to verify delivery.',
+                'Enter the package tracking ID to verify delivery.',
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 16),
-
-              // Tracking ID input
               TextField(
                 controller: _trackingIdController,
+                textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
                   labelText: 'Tracking ID',
                   hintText: 'e.g. TRK-FB003707',
@@ -182,8 +209,6 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Verify Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -199,13 +224,12 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                       );
                       return;
                     }
-
-                    final result =
-                    await ApiService.verifyDelivery(deliveryId, scannedId);
+                    final result = await ApiService.verifyDelivery(
+                        _deliveryId, scannedId);
                     if (!mounted) return;
                     Navigator.pop(context);
-
-                    if (result['success'] && result['data']['verified'] == true) {
+                    if (result['success'] &&
+                        result['data']['verified'] == true) {
                       setState(() => _isVerified = true);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -244,31 +268,13 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
   }
 
   @override
-  void dispose() {
-    _trackingIdController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final delivery =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
-            {
-              'id': 1,
-              'pickup_location': 'Pickup Location',
-              'delivery_location': 'Drop-off Location',
-              'status': 'pending',
-            };
-
-    final deliveryId = delivery['id'] ?? 1;
-    _currentStatus = delivery['status'] ?? 'pending';
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: Colors.orange,
         title: Text(
-          '#DEL${deliveryId.toString().padLeft(3, '0')}',
+          '#DEL${_deliveryId.toString().padLeft(3, '0')}',
           style: const TextStyle(
               color: Colors.white, fontWeight: FontWeight.bold),
         ),
@@ -312,6 +318,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
 
             // Route Details
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -322,25 +329,28 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                 children: [
                   const Text(
                     'Route Details',
-                    style:
-                    TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Icon(Icons.circle, color: Colors.green, size: 14),
+                      const Icon(Icons.circle,
+                          color: Colors.green, size: 14),
                       const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Pickup',
-                              style: TextStyle(color: Colors.grey)),
-                          Text(
-                            delivery['pickup_location'] ?? '',
-                            style:
-                            const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Pickup',
+                                style: TextStyle(color: Colors.grey)),
+                            Text(
+                              _delivery['pickup_location'] ?? '',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -350,21 +360,23 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                       const Icon(Icons.location_on,
                           color: Colors.red, size: 14),
                       const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Drop-off',
-                              style: TextStyle(color: Colors.grey)),
-                          Text(
-                            delivery['delivery_location'] ?? '',
-                            style:
-                            const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Drop-off',
+                                style: TextStyle(color: Colors.grey)),
+                            Text(
+                              _delivery['delivery_location'] ?? '',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  if (delivery['estimated_time'] != null) ...[
+                  if (_delivery['estimated_time'] != null) ...[
                     const Divider(height: 24),
                     Row(
                       children: [
@@ -372,13 +384,13 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                             color: Colors.orange, size: 14),
                         const SizedBox(width: 8),
                         Text(
-                          'Estimated Time: ${delivery['estimated_time']} mins',
+                          'Estimated Time: ${_delivery['estimated_time']} mins',
                           style: const TextStyle(color: Colors.orange),
                         ),
                       ],
                     ),
                   ],
-                  if (delivery['tracking_id'] != null) ...[
+                  if (_delivery['tracking_id'] != null) ...[
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -386,7 +398,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                             color: Colors.grey, size: 14),
                         const SizedBox(width: 8),
                         Text(
-                          'Tracking ID: ${delivery['tracking_id']}',
+                          'Tracking ID: ${_delivery['tracking_id']}',
                           style: const TextStyle(color: Colors.grey),
                         ),
                       ],
@@ -398,7 +410,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
 
             const SizedBox(height: 16),
 
-            // Verification Status
+            // Verification Badge
             if (_isVerified)
               Container(
                 width: double.infinity,
@@ -415,7 +427,8 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                     Text(
                       'Delivery Verified ✅',
                       style: TextStyle(
-                          color: Colors.green, fontWeight: FontWeight.bold),
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -440,11 +453,13 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                     Text(
                       'AI Optimized Route Map',
                       style: TextStyle(
-                          fontWeight: FontWeight.bold, color: Colors.orange),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange),
                     ),
                     Text(
                       'Google Maps coming soon',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      style:
+                      TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                   ],
                 ),
@@ -458,8 +473,7 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
               width: double.infinity,
               height: 55,
               child: ElevatedButton.icon(
-                onPressed:
-                _isUpdating ? null : () => _showStatusUpdate(deliveryId),
+                onPressed: _isUpdating ? null : _showStatusUpdate,
                 icon: _isUpdating
                     ? const SizedBox(
                   width: 20,
@@ -490,22 +504,23 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
               width: double.infinity,
               height: 55,
               child: ElevatedButton.icon(
-                onPressed: _isVerified
-                    ? null
-                    : () => _showVerification(deliveryId),
+                onPressed: _isVerified ? null : _showVerification,
                 icon: Icon(
                   _isVerified ? Icons.verified : Icons.camera_alt,
                   color: Colors.white,
                 ),
                 label: Text(
-                  _isVerified ? 'Already Verified ✅' : 'Verify Delivery',
+                  _isVerified
+                      ? 'Already Verified ✅'
+                      : 'Verify Delivery',
                   style: const TextStyle(
                       fontSize: 16,
                       color: Colors.white,
                       fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _isVerified ? Colors.grey : Colors.blue,
+                  backgroundColor:
+                  _isVerified ? Colors.grey : Colors.blue,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),

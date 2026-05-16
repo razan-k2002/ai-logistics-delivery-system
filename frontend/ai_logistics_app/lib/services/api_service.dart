@@ -433,7 +433,22 @@ class ApiService {
       return {'success': false, 'message': 'Connection error.'};
     }
   }
-
+  static Future<Map<String, dynamic>> getCustomerDeliveries(int customerId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/deliveries/customer/$customerId'), headers: authHeaders)
+          .timeout(const Duration(seconds: 10),
+          onTimeout: () => throw Exception('Connection timeout'));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data};
+      } else {
+        return {'success': false, 'message': 'Failed to get deliveries'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error.'};
+    }
+  }
   static Future<Map<String, dynamic>> getAllDeliveries() async {
     try {
       final response = await http

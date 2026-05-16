@@ -37,22 +37,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       return;
     }
 
-    // DEBUG - remove after testing
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('User ID: $userId')),
-      );
-    }
-
     // Get real driver ID from user ID
     final driverResult = await ApiService.getDriverByUserId(userId);
 
-    // DEBUG - remove after testing
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Driver result: ${driverResult.toString()}')),
-      );
-    }
 
     if (!driverResult['success']) {
       setState(() => _isLoading = false);
@@ -252,11 +239,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               children: _deliveries.map((delivery) {
                 final status = delivery['status'] ?? 'pending';
                 return GestureDetector(
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    '/delivery-details',
-                    arguments: delivery,
-                  ),
+                  onTap: () async {
+                    await Navigator.pushNamed(
+                      context,
+                      '/delivery-details',
+                      arguments: delivery,
+                    );
+                    // Refresh deliveries when coming back
+                    setState(() => _isLoading = true);
+                    _loadDeliveries();
+                  },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
