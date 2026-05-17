@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/storage_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -8,56 +10,103 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final List<Map<String, dynamic>> _notifications = [
-    {
-      'title': 'Driver Assigned!',
-      'message': 'Ali Hassan has been assigned to your delivery #DEL001',
-      'time': '5 mins ago',
-      'icon': Icons.person,
-      'color': Colors.blue,
-      'isRead': false,
-    },
-    {
-      'title': 'Package Picked Up',
-      'message': 'Your package has been picked up and is on the way!',
-      'time': '20 mins ago',
-      'icon': Icons.inventory,
-      'color': Colors.orange,
-      'isRead': false,
-    },
-    {
-      'title': 'Delivery In Transit',
-      'message': 'Your delivery #DEL001 is now in transit. ETA: 25 mins',
-      'time': '25 mins ago',
-      'icon': Icons.local_shipping,
-      'color': Colors.purple,
-      'isRead': true,
-    },
-    {
-      'title': 'Delivery Completed!',
-      'message': 'Your delivery #DEL002 has been delivered successfully!',
-      'time': '1 hour ago',
-      'icon': Icons.check_circle,
-      'color': Colors.green,
-      'isRead': true,
-    },
-    {
-      'title': 'Route Optimized',
-      'message': 'AI has optimized the route for faster delivery',
-      'time': '2 hours ago',
-      'icon': Icons.route,
-      'color': Colors.teal,
-      'isRead': true,
-    },
-    {
-      'title': 'New Delivery Request',
-      'message': 'You have a new delivery request #DEL003 assigned to you',
-      'time': '3 hours ago',
-      'icon': Icons.add_circle,
-      'color': Colors.orange,
-      'isRead': true,
-    },
-  ];
+  List<Map<String, dynamic>> _notifications = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  void _loadNotifications() async {
+    final customerId = await StorageService.getUserId();
+    if (customerId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final result = await ApiService.getCustomerDeliveries(customerId);
+    if (!result['success']) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final deliveries = result['data'] as List;
+    final List<Map<String, dynamic>> notifications = [];
+
+    for (var delivery in deliveries) {
+      final id = '#DEL${delivery['id'].toString().padLeft(3, '0')}';
+      final status = delivery['status'] ?? 'pending';
+      final createdAt = delivery['created_at'] ?? '';
+      final dateStr = createdAt.isNotEmpty
+          ? createdAt.toString().substring(0, 10)
+          : '';
+
+      if (status == 'in_progress') {
+        notifications.add({
+          'title': 'Driver Assigned!',
+          'message': 'A driver has been assigned to your delivery $id',
+          'time': dateStr,
+          'icon': Icons.person,
+          'color': Colors.blue,
+          'isRead': false,
+        });
+        notifications.add({
+          'title': 'Delivery In Transit',
+          'message': 'Your delivery $id is now on the way!',
+          'time': dateStr,
+          'icon': Icons.local_shipping,
+          'color': Colors.purple,
+          'isRead': false,
+        });
+      } else if (status == 'delivered') {
+        notifications.add({
+          'title': 'Delivery Completed! ✅',
+          'message': 'Your delivery $id has been delivered successfully!',
+          'time': dateStr,
+          'icon': Icons.check_circle,
+          'color': Colors.green,
+          'isRead': true,
+        });
+      } else if (status == 'cancelled') {
+        notifications.add({
+          'title': 'Delivery Cancelled',
+          'message': 'Your delivery $id has been cancelled.',
+          'time': dateStr,
+          'icon': Icons.cancel,
+          'color': Colors.red,
+          'isRead': true,
+        });
+      } else if (status == 'pending') {
+        notifications.add({
+          'title': 'Delivery Request Received',
+          'message': 'Your delivery $id is pending driver assignment.',
+          'time': dateStr,
+          'icon': Icons.hourglass_empty,
+          'color': Colors.orange,
+          'isRead': true,
+        });
+      }
+
+      if (delivery['estimated_time'] != null) {
+        notifications.add({
+          'title': 'Route Optimized by AI 🤖',
+          'message':
+          'AI optimized the route for $id. ETA: ${delivery['estimated_time']} mins',
+          'time': dateStr,
+          'icon': Icons.route,
+          'color': Colors.teal,
+          'isRead': true,
+        });
+      }
+    }
+
+    setState(() {
+      _notifications = notifications;
+      _isLoading = false;
+    });
+  }
 
   void _markAllRead() {
     setState(() {
@@ -75,7 +124,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final unreadCount = _notifications.where((n) => !n['isRead']).length;
+    final unreadCount =
+        _notifications.where((n) => !n['isRead']).length;
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -100,13 +150,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
         ],
       ),
-      body: Column(
+      body: _isLoading
+          ? const Center(
+          child: CircularProgressIndicator(color: Colors.orange))
+          : Column(
         children: [
-          // Unread count banner
           if (unreadCount > 0)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 10),
               color: Colors.orange.withValues(alpha: 0.1),
               child: Text(
                 'You have $unreadCount unread notifications',
@@ -116,133 +169,130 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
               ),
             ),
-
-          // Notifications List
           Expanded(
             child: _notifications.isEmpty
                 ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.notifications_off,
-                          size: 60,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'No notifications yet',
-                          style: TextStyle(color: Colors.grey),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.notifications_off,
+                      size: 60, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('No notifications yet',
+                      style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            )
+                : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _notifications.length,
+              itemBuilder: (context, index) {
+                final notification = _notifications[index];
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      notification['isRead'] = true;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: notification['isRead']
+                          ? Colors.white
+                          : Colors.orange
+                          .withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: notification['isRead']
+                            ? Colors.transparent
+                            : Colors.orange
+                            .withValues(alpha: 0.3),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                          Colors.grey.withValues(alpha: 0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _notifications.length,
-                    itemBuilder: (context, index) {
-                      final notification = _notifications[index];
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            notification['isRead'] = true;
-                          });
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: notification['isRead']
-                                ? Colors.white
-                                : Colors.orange.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: notification['isRead']
-                                  ? Colors.transparent
-                                  : Colors.orange.withValues(alpha: 0.3),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withValues(alpha: 0.08),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            color: notification['color']
+                                .withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Icon(
+                            notification['icon'],
+                            color: notification['color'],
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment:
+                            CrossAxisAlignment.start,
                             children: [
-                              // Icon
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: notification['color'].withValues(
-                                    alpha: 0.1,
+                              Row(
+                                mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      notification['title'],
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: notification['isRead']
+                                            ? Colors.black
+                                            : Colors.orange,
+                                      ),
+                                    ),
                                   ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  notification['icon'],
-                                  color: notification['color'],
-                                  size: 22,
+                                  if (!notification['isRead'])
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration:
+                                      const BoxDecoration(
+                                        color: Colors.orange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                notification['message'],
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-
-                              // Content
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          notification['title'],
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: notification['isRead']
-                                                ? Colors.black
-                                                : Colors.orange,
-                                          ),
-                                        ),
-                                        if (!notification['isRead'])
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: const BoxDecoration(
-                                              color: Colors.orange,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      notification['message'],
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      notification['time'],
-                                      style: const TextStyle(
-                                        color: Colors.orange,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
+                              const SizedBox(height: 6),
+                              Text(
+                                notification['time'],
+                                style: const TextStyle(
+                                  color: Colors.orange,
+                                  fontSize: 11,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
+                );
+              },
+            ),
           ),
         ],
       ),

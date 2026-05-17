@@ -10,4 +10,5 @@ router.post("/:id/assign", verifyToken, deliveryController.assignDriver);
 router.patch("/:id/status", verifyToken, deliveryController.updateStatus);
 router.get("/:id/track", verifyToken, deliveryController.trackDelivery);
 router.post("/:id/verify", verifyToken, deliveryController.verifyDelivery);
+router.get("/customer/:customerId", verifyToken, deliveryController.getCustomerDeliveries);
 module.exports = router;

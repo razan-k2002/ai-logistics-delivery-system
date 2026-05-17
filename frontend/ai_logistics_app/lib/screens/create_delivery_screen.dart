@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/storage_service.dart';
 
 class CreateDeliveryScreen extends StatefulWidget {
   const CreateDeliveryScreen({super.key});
@@ -13,7 +14,27 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
   final _dropoffController = TextEditingController();
   String _selectedPackageType = 'Small';
   bool _isLoading = false;
+  int? _customerId;
+
   final List<String> _packageTypes = ['Small', 'Medium', 'Large', 'Fragile'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomerId();
+  }
+
+  void _loadCustomerId() async {
+    final id = await StorageService.getUserId();
+    setState(() => _customerId = id);
+  }
+
+  @override
+  void dispose() {
+    _pickupController.dispose();
+    _dropoffController.dispose();
+    super.dispose();
+  }
 
   void _submitDelivery() async {
     if (_pickupController.text.isEmpty || _dropoffController.text.isEmpty) {
@@ -26,12 +47,22 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
       return;
     }
 
+    if (_customerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Session expired. Please login again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final result = await ApiService.createDelivery(
       pickupLocation: _pickupController.text.trim(),
       deliveryLocation: _dropoffController.text.trim(),
-      customerId: 1,
+      customerId: _customerId!,
     );
 
     setState(() => _isLoading = false);
@@ -58,9 +89,16 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Delivery ID: #DEL00${delivery['id']}',
+                'Delivery ID: #DEL${delivery['id'].toString().padLeft(3, '0')}',
                 style: const TextStyle(color: Colors.grey),
               ),
+              if (delivery['tracking_id'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Tracking ID: ${delivery['tracking_id']}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
               const SizedBox(height: 8),
               if (route != null)
                 Container(
@@ -110,7 +148,9 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text(result['message'] ?? 'Failed to create delivery'),
+            backgroundColor: Colors.red),
       );
     }
   }
@@ -135,12 +175,14 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // AI Info Banner
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                border:
+                Border.all(color: Colors.orange.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 children: [
@@ -148,14 +190,17 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'AI will automatically assign the best driver and optimize the route!',
+                      'AI will automatically optimize the route and estimate delivery time!',
                       style: TextStyle(color: Colors.orange),
                     ),
                   ),
                 ],
               ),
             ),
+
             const SizedBox(height: 24),
+
+            // Pickup Location
             const Text(
               'Pickup Location',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -165,11 +210,8 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
               controller: _pickupController,
               decoration: InputDecoration(
                 hintText: 'Enter pickup address',
-                prefixIcon: const Icon(
-                  Icons.circle,
-                  color: Colors.green,
-                  size: 16,
-                ),
+                prefixIcon:
+                const Icon(Icons.circle, color: Colors.green, size: 16),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -178,7 +220,10 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 ),
               ),
             ),
+
             const SizedBox(height: 16),
+
+            // Dropoff Location
             const Text(
               'Drop-off Location',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -188,11 +233,8 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
               controller: _dropoffController,
               decoration: InputDecoration(
                 hintText: 'Enter drop-off address',
-                prefixIcon: const Icon(
-                  Icons.location_on,
-                  color: Colors.red,
-                  size: 20,
-                ),
+                prefixIcon: const Icon(Icons.location_on,
+                    color: Colors.red, size: 20),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -201,7 +243,10 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 ),
               ),
             ),
+
             const SizedBox(height: 16),
+
+            // Package Type
             const Text(
               'Package Type',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -212,7 +257,8 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 final isSelected = _selectedPackageType == type;
                 return Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() => _selectedPackageType = type),
+                    onTap: () =>
+                        setState(() => _selectedPackageType = type),
                     child: Container(
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -220,7 +266,9 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                         color: isSelected ? Colors.orange : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? Colors.orange : Colors.grey[300]!,
+                          color: isSelected
+                              ? Colors.orange
+                              : Colors.grey[300]!,
                         ),
                       ),
                       child: Text(
@@ -237,7 +285,10 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 );
               }).toList(),
             ),
+
             const SizedBox(height: 24),
+
+            // AI Features Info
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -249,7 +300,8 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 children: [
                   Text(
                     'AI Route Optimization',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   SizedBox(height: 12),
                   Row(
@@ -278,7 +330,10 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 ],
               ),
             ),
+
             const SizedBox(height: 24),
+
+            // Submit Button
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -293,22 +348,23 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.local_shipping, color: Colors.white),
-                          SizedBox(width: 8),
-                          Text(
-                            'Create Delivery Request',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.local_shipping, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      'Create Delivery Request',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
+                  ],
+                ),
               ),
             ),
+
             const SizedBox(height: 20),
           ],
         ),
