@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import '../widgets/delivery_timeline.dart';
 
 class TrackDeliveryScreen extends StatefulWidget {
   const TrackDeliveryScreen({super.key});
@@ -313,7 +314,8 @@ class _TrackDeliveryScreenState extends State<TrackDeliveryScreen> {
               ),
             ),
           ),
-
+          const SizedBox(height: 16),
+          DeliveryTimeline(currentStatus: status),
           const SizedBox(height: 16),
 
           // Driver Info
