@@ -11,6 +11,7 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _selectedIndex = 0;
 
+  // Stats
   Map<String, dynamic> _stats = {
     'total_deliveries': '0',
     'pending': '0',
@@ -22,18 +23,32 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   };
   bool _loadingStats = true;
 
+  // Users
   List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> _filteredUsers = [];
   bool _loadingUsers = true;
+  final _userSearchController = TextEditingController();
 
+  // Drivers
   List<Map<String, dynamic>> _drivers = [];
 
+  // Deliveries
   List<Map<String, dynamic>> _deliveries = [];
+  List<Map<String, dynamic>> _filteredDeliveries = [];
   bool _loadingDeliveries = true;
+  final _deliverySearchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadAll();
+  }
+
+  @override
+  void dispose() {
+    _userSearchController.dispose();
+    _deliverySearchController.dispose();
+    super.dispose();
   }
 
   void _loadAll() {
@@ -59,10 +74,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final driversResult = await ApiService.getAllDrivers();
 
     if (usersResult['success']) {
+      final allUsers = List<Map<String, dynamic>>.from(usersResult['data']['users']);
       setState(() {
-        _users = List<Map<String, dynamic>>.from(usersResult['data']['users']);
+        _users = allUsers;
+        _filteredUsers = allUsers;
         _loadingUsers = false;
       });
+    } else {
+      setState(() => _loadingUsers = false);
     }
 
     if (driversResult['success']) {
@@ -77,13 +96,35 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   void _loadDeliveries() async {
     final result = await ApiService.getAllDeliveries();
     if (result['success']) {
+      final deliveries = List<Map<String, dynamic>>.from(result['data']['deliveries']);
       setState(() {
-        _deliveries = List<Map<String, dynamic>>.from(result['data']['deliveries']);
+        _deliveries = deliveries;
+        _filteredDeliveries = deliveries;
         _loadingDeliveries = false;
       });
     } else {
       setState(() => _loadingDeliveries = false);
     }
+  }
+
+  void _filterUsers(String query) {
+    setState(() {
+      _filteredUsers = _users.where((u) =>
+      u['name'].toString().toLowerCase().contains(query.toLowerCase()) ||
+          u['email'].toString().toLowerCase().contains(query.toLowerCase())
+      ).toList();
+    });
+  }
+
+  void _filterDeliveries(String query) {
+    setState(() {
+      _filteredDeliveries = _deliveries.where((d) =>
+      (d['pickup_location'] ?? '').toString().toLowerCase().contains(query.toLowerCase()) ||
+          (d['delivery_location'] ?? '').toString().toLowerCase().contains(query.toLowerCase()) ||
+          (d['customer_name'] ?? '').toString().toLowerCase().contains(query.toLowerCase()) ||
+          '#DEL${d['id'].toString().padLeft(3, '0')}'.toLowerCase().contains(query.toLowerCase())
+      ).toList();
+    });
   }
 
   Color _statusColor(String status) {
@@ -156,7 +197,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Welcome, Admin 👋', style: TextStyle(color: Colors.white, fontSize: 16)),
+                Text('Welcome, Admin!', style: TextStyle(color: Colors.white, fontSize: 16)),
                 SizedBox(height: 4),
                 Text('AI Logistics System',
                     style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
@@ -213,7 +254,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: _statusColor(status).withValues(alpha: 0.1),
+                        color: _statusColor(status).withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.local_shipping, color: _statusColor(status), size: 18),
@@ -233,7 +274,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _statusColor(status).withValues(alpha: 0.1),
+                        color: _statusColor(status).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(_statusLabel(status),
@@ -253,65 +294,74 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     if (_loadingUsers) {
       return const Center(child: CircularProgressIndicator(color: Colors.orange));
     }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          TextField(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            controller: _userSearchController,
+            onChanged: _filterUsers,
             decoration: InputDecoration(
-              hintText: 'Search users...',
+              hintText: 'Search by name or email...',
               prefixIcon: const Icon(Icons.search),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             ),
           ),
-          const SizedBox(height: 16),
-          ..._users.map((user) {
-            final role = user['role'] ?? 'customer';
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: role == 'driver' ? Colors.blue : Colors.orange,
-                    child: Icon(role == 'driver' ? Icons.drive_eta : Icons.person, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(user['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(user['email'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: role == 'driver'
-                                ? Colors.blue.withValues(alpha: 0.1)
-                                : role == 'admin'
-                                ? Colors.purple.withValues(alpha: 0.1)
-                                : Colors.orange.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(role,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: role == 'driver' ? Colors.blue : role == 'admin' ? Colors.purple : Colors.orange,
-                              )),
-                        ),
-                      ],
+        ),
+        Expanded(
+          child: _filteredUsers.isEmpty
+              ? const Center(child: Text('No users found', style: TextStyle(color: Colors.grey)))
+              : ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _filteredUsers.length,
+            itemBuilder: (context, index) {
+              final user = _filteredUsers[index];
+              final role = user['role'] ?? 'customer';
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: role == 'driver' ? Colors.blue : role == 'admin' ? Colors.purple : Colors.orange,
+                      child: Icon(
+                        role == 'driver' ? Icons.drive_eta : role == 'admin' ? Icons.admin_panel_settings : Icons.person,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(user['email'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: (role == 'driver' ? Colors.blue : role == 'admin' ? Colors.purple : Colors.orange).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(role,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: role == 'driver' ? Colors.blue : role == 'admin' ? Colors.purple : Colors.orange,
+                                )),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -319,106 +369,123 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     if (_loadingDeliveries) {
       return const Center(child: CircularProgressIndicator(color: Colors.orange));
     }
-    if (_deliveries.isEmpty) {
-      return const Center(child: Text('No deliveries found.'));
-    }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          TextField(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            controller: _deliverySearchController,
+            onChanged: _filterDeliveries,
             decoration: InputDecoration(
-              hintText: 'Search deliveries...',
+              hintText: 'Search by location, customer or ID...',
               prefixIcon: const Icon(Icons.search),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             ),
           ),
-          const SizedBox(height: 16),
-          ..._deliveries.map((delivery) {
-            final status = delivery['status'] ?? 'pending';
-            final driverId = delivery['driver_id'];
-            final driverName = delivery['driver_name'];
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('#DEL${delivery['id'].toString().padLeft(3, '0')}',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _statusColor(status).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
+        ),
+        Expanded(
+          child: _filteredDeliveries.isEmpty
+              ? const Center(child: Text('No deliveries found', style: TextStyle(color: Colors.grey)))
+              : ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _filteredDeliveries.length,
+            itemBuilder: (context, index) {
+              final delivery = _filteredDeliveries[index];
+              final status = delivery['status'] ?? 'pending';
+              final driverId = delivery['driver_id'];
+              final driverName = delivery['driver_name'];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('#DEL${delivery['id'].toString().padLeft(3, '0')}',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _statusColor(status).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(_statusLabel(status),
+                              style: TextStyle(color: _statusColor(status), fontWeight: FontWeight.bold, fontSize: 12)),
                         ),
-                        child: Text(_statusLabel(status),
-                            style: TextStyle(color: _statusColor(status), fontWeight: FontWeight.bold, fontSize: 12)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      const Icon(Icons.person, color: Colors.grey, size: 14),
+                      const SizedBox(width: 4),
+                      Text('Customer: ${delivery['customer_name'] ?? 'Unknown'}',
+                          style: const TextStyle(color: Colors.grey)),
+                    ]),
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      const Icon(Icons.drive_eta, color: Colors.grey, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        driverName != null ? 'Driver: $driverName' : 'Unassigned',
+                        style: TextStyle(color: driverName != null ? Colors.grey : Colors.red),
+                      ),
+                    ]),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      const Icon(Icons.circle, color: Colors.green, size: 12),
+                      const SizedBox(width: 4),
+                      Expanded(child: Text(delivery['pickup_location'] ?? '', style: const TextStyle(fontSize: 12))),
+                    ]),
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      const Icon(Icons.location_on, color: Colors.red, size: 12),
+                      const SizedBox(width: 4),
+                      Expanded(child: Text(delivery['delivery_location'] ?? 'N/A', style: const TextStyle(fontSize: 12))),
+                    ]),
+                    if (driverId == null && status == 'pending') ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showAssignDriver(delivery['id']),
+                          icon: const Icon(Icons.person_add, color: Colors.white, size: 16),
+                          label: const Text('Assign Driver', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    const Icon(Icons.person, color: Colors.grey, size: 14),
-                    const SizedBox(width: 4),
-                    Text('Customer: ${delivery['customer_name'] ?? 'Unknown'}',
-                        style: const TextStyle(color: Colors.grey)),
-                  ]),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    const Icon(Icons.drive_eta, color: Colors.grey, size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      driverName != null ? 'Driver: $driverName' : 'Unassigned',
-                      style: TextStyle(color: driverName != null ? Colors.grey : Colors.red),
-                    ),
-                  ]),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    const Icon(Icons.circle, color: Colors.green, size: 12),
-                    const SizedBox(width: 4),
-                    Expanded(child: Text(delivery['pickup_location'] ?? '', style: const TextStyle(fontSize: 12))),
-                  ]),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    const Icon(Icons.location_on, color: Colors.red, size: 12),
-                    const SizedBox(width: 4),
-                    Expanded(child: Text(delivery['delivery_location'] ?? 'N/A', style: const TextStyle(fontSize: 12))),
-                  ]),
-                  if (driverId == null && status == 'pending') ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _showAssignDriver(delivery['id']),
-                        icon: const Icon(Icons.person_add, color: Colors.white, size: 16),
-                        label: const Text('Assign Driver', style: TextStyle(color: Colors.white)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ),
                   ],
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  void _showAssignDriver(int deliveryId) {
+  void _showAssignDriver(int deliveryId) async {
+    // Get AI suggested best driver
+    final bestResult = await ApiService.getBestDriver();
+    int? bestDriverId;
+    if (bestResult['success']) {
+      bestDriverId = bestResult['data']['best_driver']['id'];
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.all(20),
@@ -426,13 +493,29 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Assign Driver to #DEL${deliveryId.toString().padLeft(3, '0')}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                'Assign Driver to #DEL${deliveryId.toString().padLeft(3, '0')}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              if (bestDriverId != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, color: Colors.orange, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      'AI recommended driver is highlighted',
+                      style: TextStyle(color: Colors.orange[700], fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               _drivers.isEmpty
                   ? const Text('No available drivers.', style: TextStyle(color: Colors.grey))
                   : Column(
                 children: _drivers.map((driver) {
+                  final isRecommended = driver['id'] == bestDriverId;
                   return GestureDetector(
                     onTap: () async {
                       Navigator.pop(context);
@@ -444,6 +527,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         ));
                         _loadDeliveries();
                         _loadStats();
+                        _loadUsers();
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text(result['message'] ?? 'Failed to assign driver'),
@@ -454,7 +538,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(
+                        color: isRecommended
+                            ? Colors.orange.withOpacity(0.1)
+                            : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isRecommended ? Colors.orange : Colors.transparent,
+                        ),
+                      ),
                       child: Row(
                         children: [
                           const CircleAvatar(
@@ -462,12 +554,34 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             child: Icon(Icons.drive_eta, color: Colors.white, size: 18),
                           ),
                           const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(driver['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              Text(driver['email'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                            ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(driver['name'] ?? '',
+                                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    if (isRecommended) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Text(
+                                          'AI Pick',
+                                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                Text(driver['email'] ?? '',
+                                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -520,7 +634,7 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
       child: Column(
         children: [
           Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),

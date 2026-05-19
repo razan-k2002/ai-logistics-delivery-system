@@ -435,7 +435,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     );
   }
 
-  void _showProfile() {
+  void _showProfile() async {
+    Map<String, dynamic>? performance;
+
+    if (_driverId != null) {
+      final result = await ApiService.getDriverPerformance(_driverId!);
+      if (result['success']) {
+        performance = result['data']['performance'];
+      }
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -455,22 +466,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               const SizedBox(height: 16),
               Text(
                 _driverName,
-                style:
-                const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              Text(
-                _driverEmail,
-                style: const TextStyle(color: Colors.grey),
-              ),
+              Text(_driverEmail, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 8),
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _isAvailable
-                      ? Colors.green.withValues(alpha: 0.1)
-                      : Colors.grey.withValues(alpha: 0.1),
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -480,20 +486,87 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _ProfileStat(
+
+              // Performance Stats
+              if (performance != null) ...[
+                const Divider(),
+                const SizedBox(height: 8),
+                const Text(
+                  'Performance Analytics',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _ProfileStat(
                       label: 'Total',
-                      value: _deliveries.length.toString()),
-                  _ProfileStat(
+                      value: performance['total_deliveries'].toString(),
+                    ),
+                    _ProfileStat(
+                      label: 'Completed',
+                      value: performance['completed_deliveries'].toString(),
+                    ),
+                    _ProfileStat(
+                      label: 'On-Time %',
+                      value: '${performance['on_time_rate_percent'] ?? 0}%',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _ProfileStat(
+                      label: 'Avg Time',
+                      value: '${performance['avg_delivery_time_minutes'] ?? 0} min',
+                    ),
+                    _ProfileStat(
+                      label: 'Cancelled',
+                      value: performance['cancelled_deliveries'].toString(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // On-time rate progress bar
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('On-Time Rate', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        Text(
+                          '${performance['on_time_rate_percent'] ?? 0}%',
+                          style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: (int.tryParse(performance['on_time_rate_percent']?.toString() ?? '0') ?? 0) / 100,
+                        backgroundColor: Colors.grey[200],
+                        color: Colors.orange,
+                        minHeight: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _ProfileStat(label: 'Total', value: _deliveries.length.toString()),
+                    _ProfileStat(
                       label: 'Delivered',
-                      value: _deliveries
-                          .where((d) => d['status'] == 'delivered')
-                          .length
-                          .toString()),
-                ],
-              ),
+                      value: _deliveries.where((d) => d['status'] == 'delivered').length.toString(),
+                    ),
+                  ],
+                ),
+              ],
+
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -507,11 +580,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Logout',
-                      style: TextStyle(color: Colors.white)),
+                  child: const Text('Logout', style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],

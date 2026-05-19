@@ -111,3 +111,38 @@ exports.updateAvailability = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+// GET BEST AVAILABLE DRIVER
+exports.getBestDriver = async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT 
+                d.id,
+                u.name,
+                d.vehicle_type,
+                d.availability_status,
+                COUNT(del.id) AS total_deliveries,
+                COUNT(CASE WHEN del.status = 'delivered' THEN 1 END) AS completed,
+                ROUND(
+                    COUNT(CASE WHEN del.actual_delivery_time <= del.estimated_time THEN 1 END) * 100.0 /
+                    NULLIF(COUNT(CASE WHEN del.status = 'delivered' THEN 1 END), 0)
+                ) AS on_time_rate
+             FROM drivers d
+             JOIN users u ON d.user_id = u.id
+             LEFT JOIN deliveries del ON d.id = del.driver_id
+             WHERE d.availability_status = true
+             GROUP BY d.id, u.name, d.vehicle_type, d.availability_status
+             ORDER BY on_time_rate DESC NULLS LAST, completed DESC
+             LIMIT 1`
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "No available drivers" });
+        }
+
+        res.json({ best_driver: result.rows[0] });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+};
