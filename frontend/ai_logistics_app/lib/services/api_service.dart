@@ -54,6 +54,41 @@ class ApiService {
       };
     }
   }
+// Get Notifications
+  static Future<Map<String, dynamic>> getNotifications() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/notifications'), headers: authHeaders)
+          .timeout(const Duration(seconds: 10),
+          onTimeout: () => throw Exception('Connection timeout'));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data};
+      } else {
+        return {'success': false, 'message': 'Failed to get notifications'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error.'};
+    }
+  }
+
+// Mark all notifications as read
+  static Future<Map<String, dynamic>> markAllNotificationsRead() async {
+    try {
+      final response = await http
+          .patch(Uri.parse('$baseUrl/api/notifications/read-all'), headers: authHeaders)
+          .timeout(const Duration(seconds: 10),
+          onTimeout: () => throw Exception('Connection timeout'));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data};
+      } else {
+        return {'success': false, 'message': 'Failed to mark as read'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error.'};
+    }
+  }
 
   static Future<Map<String, dynamic>> register(
       String name,
@@ -474,4 +509,25 @@ class ApiService {
       return {'success': false, 'message': 'Connection error.'};
     }
   }
+
+static Future<Map<String, dynamic>> updateDriverAvailability(
+int driverId, bool isAvailable) async {
+try {
+final response = await http
+    .patch(
+Uri.parse('$baseUrl/api/drivers/$driverId/availability'),
+headers: authHeaders,
+body: jsonEncode({'is_available': isAvailable}),
+)
+    .timeout(const Duration(seconds: 10),
+onTimeout: () => throw Exception('Connection timeout'));
+final data = jsonDecode(response.body);
+if (response.statusCode == 200) {
+return {'success': true, 'data': data};
+} else {
+return {'success': false, 'message': data['message'] ?? 'Failed to update'};
 }
+} catch (e) {
+return {'success': false, 'message': 'Connection error.'};
+}
+}}

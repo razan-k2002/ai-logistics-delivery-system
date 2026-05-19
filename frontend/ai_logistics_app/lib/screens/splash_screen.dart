@@ -49,7 +49,10 @@ class _SplashScreenState extends State<SplashScreen>
       // Restore token
       final token = await StorageService.getToken();
       final role = await StorageService.getRole();
+      final userId = await StorageService.getUserId();
       ApiService.token = token;
+      ApiService.userId = userId;
+      ApiService.userRole = role;
 
       if (!mounted) return;
 

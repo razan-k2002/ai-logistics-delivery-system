@@ -20,95 +20,45 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _loadNotifications() async {
-    final customerId = await StorageService.getUserId();
-    if (customerId == null) {
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    final result = await ApiService.getCustomerDeliveries(customerId);
+    final result = await ApiService.getNotifications();
     if (!result['success']) {
       setState(() => _isLoading = false);
       return;
     }
 
-    final deliveries = result['data'] as List;
-    final List<Map<String, dynamic>> notifications = [];
-
-    for (var delivery in deliveries) {
-      final id = '#DEL${delivery['id'].toString().padLeft(3, '0')}';
-      final status = delivery['status'] ?? 'pending';
-      final createdAt = delivery['created_at'] ?? '';
-      final dateStr = createdAt.isNotEmpty
-          ? createdAt.toString().substring(0, 10)
-          : '';
-
-      if (status == 'in_progress') {
-        notifications.add({
-          'title': 'Driver Assigned!',
-          'message': 'A driver has been assigned to your delivery $id',
-          'time': dateStr,
-          'icon': Icons.person,
-          'color': Colors.blue,
-          'isRead': false,
-        });
-        notifications.add({
-          'title': 'Delivery In Transit',
-          'message': 'Your delivery $id is now on the way!',
-          'time': dateStr,
-          'icon': Icons.local_shipping,
-          'color': Colors.purple,
-          'isRead': false,
-        });
-      } else if (status == 'delivered') {
-        notifications.add({
-          'title': 'Delivery Completed! ✅',
-          'message': 'Your delivery $id has been delivered successfully!',
-          'time': dateStr,
-          'icon': Icons.check_circle,
-          'color': Colors.green,
-          'isRead': true,
-        });
-      } else if (status == 'cancelled') {
-        notifications.add({
-          'title': 'Delivery Cancelled',
-          'message': 'Your delivery $id has been cancelled.',
-          'time': dateStr,
-          'icon': Icons.cancel,
-          'color': Colors.red,
-          'isRead': true,
-        });
-      } else if (status == 'pending') {
-        notifications.add({
-          'title': 'Delivery Request Received',
-          'message': 'Your delivery $id is pending driver assignment.',
-          'time': dateStr,
-          'icon': Icons.hourglass_empty,
-          'color': Colors.orange,
-          'isRead': true,
-        });
-      }
-
-      if (delivery['estimated_time'] != null) {
-        notifications.add({
-          'title': 'Route Optimized by AI 🤖',
-          'message':
-          'AI optimized the route for $id. ETA: ${delivery['estimated_time']} mins',
-          'time': dateStr,
-          'icon': Icons.route,
-          'color': Colors.teal,
-          'isRead': true,
-        });
-      }
-    }
-
+    final data = result['data']['notifications'] as List;
     setState(() {
-      _notifications = notifications;
+      _notifications = data.map((n) => {
+        'id': n['id'],
+        'title': n['title'] ?? 'Notification',
+        'message': n['message'] ?? '',
+        'time': n['created_at'].toString().substring(0, 10),
+        'icon': _getIcon(n['title'] ?? ''),
+        'color': _getColor(n['title'] ?? ''),
+        'isRead': n['is_read'] ?? false,
+      }).toList();
       _isLoading = false;
     });
   }
 
-  void _markAllRead() {
+  IconData _getIcon(String title) {
+    if (title.contains('Driver')) return Icons.person;
+    if (title.contains('Completed')) return Icons.check_circle;
+    if (title.contains('Cancelled')) return Icons.cancel;
+    if (title.contains('Transit')) return Icons.local_shipping;
+    return Icons.notifications;
+  }
+
+  Color _getColor(String title) {
+    if (title.contains('Driver')) return Colors.blue;
+    if (title.contains('Completed')) return Colors.green;
+    if (title.contains('Cancelled')) return Colors.red;
+    if (title.contains('Transit')) return Colors.purple;
+    return Colors.orange;
+  }
+
+  void _markAllRead() async {
+    await ApiService.markAllNotificationsRead();
     setState(() {
       for (var notification in _notifications) {
         notification['isRead'] = true;

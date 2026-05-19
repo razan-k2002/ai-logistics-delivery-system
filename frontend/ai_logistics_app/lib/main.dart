@@ -9,8 +9,23 @@ import 'screens/delivery_details_screen.dart';
 import 'screens/admin_home_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/splash_screen.dart';
+import 'services/api_service.dart';
+import 'services/storage_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Restore token and user data from storage on app start
+  final token = await StorageService.getToken();
+  final userId = await StorageService.getUserId();
+  final userRole = await StorageService.getRole();
+
+  if (token != null) {
+    ApiService.token = token;
+    ApiService.userId = userId;
+    ApiService.userRole = userRole;
+  }
+
   runApp(const MyApp());
 }
 

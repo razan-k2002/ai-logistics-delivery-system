@@ -2,6 +2,17 @@ const pool = require("../config/db");
 const axios = require("axios");
 const crypto = require("crypto");
 const { sendNotification } = require("../utils/notifications");
+// Helper to create a notification
+const createNotification = async (userId, title, message) => {
+    try {
+        await pool.query(
+            "INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)",
+            [userId, title, message]
+        );
+    } catch (error) {
+        console.error("Notification error:", error.message);
+    }
+};
 // CREATE DELIVERY
 exports.createDelivery = async (req, res) => {
     try {
@@ -20,32 +31,39 @@ exports.createDelivery = async (req, res) => {
 
         // Call AI service to optimize route
         let optimizedRoute = null;
-if (pickup_coords && delivery_coords) {
-    try {
-        const aiResponse = await axios.post("http://127.0.0.1:5000/optimize", {
-            locations: [pickup_coords, delivery_coords]
-        });
-        optimizedRoute = aiResponse.data;
+        if (pickup_coords && delivery_coords) {
+            try {
+                const aiResponse = await axios.post("http://127.0.0.1:5000/optimize", {
+                    locations: [pickup_coords, delivery_coords]
+                });
+                optimizedRoute = aiResponse.data;
 
-        // Save estimated time to database
-        const estimatedMinutes = Math.round(optimizedRoute.total_duration_minutes);
-        await pool.query(
-            "UPDATE deliveries SET estimated_time=$1 WHERE id=$2",
-            [estimatedMinutes, delivery.id]
+                // Save estimated time to database
+                const estimatedMinutes = Math.round(optimizedRoute.total_duration_minutes);
+                await pool.query(
+                    "UPDATE deliveries SET estimated_time=$1 WHERE id=$2",
+                    [estimatedMinutes, delivery.id]
+                );
+                delivery.estimated_time = estimatedMinutes;
+
+            } catch (aiError) {
+                console.error("AI service error:", aiError.message);
+                console.error("AI service full error:", aiError.response?.data);
+            }
+        }
+
+        // Always notify customer when delivery is created
+        await createNotification(
+            customer_id,
+            'Delivery Request Received',
+            `Your delivery request has been created successfully. Tracking ID: ${delivery.tracking_id}`
         );
-        delivery.estimated_time = estimatedMinutes;
 
-    } catch (aiError) {
-        console.error("AI service error:", aiError.message);
-        console.error("AI service full error:", aiError.response?.data);
-    }
-}
-
-res.json({
-    message: "Delivery created successfully",
-    delivery,
-    optimized_route: optimizedRoute
-});
+        res.json({
+            message: "Delivery created successfully",
+            delivery,
+            optimized_route: optimizedRoute
+        });
 
     } catch (error) {
         console.error(error);
@@ -130,6 +148,12 @@ exports.assignDriver = async (req, res) => {
                 "Your delivery is now in progress. Your driver is on the way!"
             );
         }
+        // Notify customer
+        await createNotification(
+            delivery.rows[0].customer_id,
+            'Driver Assigned!',
+            `A driver has been assigned to your delivery #DEL${String(id).padStart(3, '0')}. It is now in progress!`
+        );
         res.json({
             message: "Driver assigned successfully",
             delivery: result.rows[0]
@@ -166,21 +190,21 @@ exports.updateStatus = async (req, res) => {
         }
 
         // Calculate actual delivery time in minutes
-let actualTime = null;
-if (status === "delivered") {
-    const createdAt = new Date(delivery.rows[0].created_at);
-    const now = new Date();
-    actualTime = Math.round((now - createdAt) / 60000);
-}
+        let actualTime = null;
+        if (status === "delivered") {
+            const createdAt = new Date(delivery.rows[0].created_at);
+            const now = new Date();
+            actualTime = Math.round((now - createdAt) / 60000);
+        }
 
-// Update status
-const result = await pool.query(
-    `UPDATE deliveries 
-     SET status=$1, actual_delivery_time=$2
-     WHERE id=$3 
-     RETURNING *`,
-    [status, actualTime, id]
-);
+        // Update status
+        const result = await pool.query(
+            `UPDATE deliveries 
+            SET status=$1, actual_delivery_time=$2
+            WHERE id=$3 
+            RETURNING *`,
+            [status, actualTime, id]
+        );
 
         // If delivered or cancelled, free up the driver
         if (status === "delivered" || status === "cancelled") {
@@ -192,7 +216,7 @@ const result = await pool.query(
                 );
             }
         }
-// Notify customer
+        // Notify customer
         const customer = await pool.query(
             "SELECT fcm_token FROM users WHERE id=$1",
             [result.rows[0].customer_id]
@@ -209,6 +233,20 @@ const result = await pool.query(
                 customer.rows[0].fcm_token,
                 "Delivery Cancelled ❌",
                 "Unfortunately your delivery has been cancelled."
+            );
+        }
+        // Notify customer based on status
+        if (status === 'delivered') {
+            await createNotification(
+                result.rows[0].customer_id,
+                'Delivery Completed!',
+                `Your delivery #DEL${String(id).padStart(3, '0')} has been delivered successfully!`
+            );
+        } else if (status === 'cancelled') {
+            await createNotification(
+                result.rows[0].customer_id,
+                'Delivery Cancelled ❌',
+                `Your delivery #DEL${String(id).padStart(3, '0')} has been cancelled.`
             );
         }
         res.json({
