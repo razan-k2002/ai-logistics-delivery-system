@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-
+import 'package:image_picker/image_picker.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 class DeliveryDetailsScreen extends StatefulWidget {
   const DeliveryDetailsScreen({super.key});
 
@@ -192,10 +193,48 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Enter the package tracking ID to verify delivery.',
+                'Scan the package tracking ID or enter it manually.',
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 16),
+
+              // Scan with Camera Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await _scanWithCamera();
+                  },
+                  icon: const Icon(Icons.camera_alt, color: Colors.white),
+                  label: const Text(
+                    'Scan with Camera',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+              const Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('OR', style: TextStyle(color: Colors.grey)),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Manual Entry
               TextField(
                 controller: _trackingIdController,
                 textCapitalization: TextCapitalization.characters,
@@ -233,15 +272,14 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                       setState(() => _isVerified = true);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('✅ Delivery verified successfully!'),
+                          content: Text('Delivery verified successfully!'),
                           backgroundColor: Colors.green,
                         ),
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text(
-                              '❌ Tracking ID does not match. Please try again.'),
+                          content: Text('Tracking ID does not match. Please try again.'),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -249,11 +287,11 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
                   },
                   icon: const Icon(Icons.verified, color: Colors.white),
                   label: const Text(
-                    'Verify',
+                    'Verify Manually',
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Colors.orange,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -532,5 +570,61 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
         ),
       ),
     );
+  }
+  Future<void> _scanWithCamera() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.camera);
+
+      if (image == null) return;
+
+      final inputImage = InputImage.fromFilePath(image.path);
+      final textRecognizer = TextRecognizer();
+      final RecognizedText recognized =
+      await textRecognizer.processImage(inputImage);
+      textRecognizer.close();
+
+      // Find TRK-XXXXXXXX pattern
+      final trkPattern = RegExp(r'TRK-[A-Z0-9]+');
+      final match = trkPattern.firstMatch(recognized.text);
+
+      if (match != null) {
+        final scannedId = match.group(0)!;
+        final result = await ApiService.verifyDelivery(_deliveryId, scannedId);
+        if (!mounted) return;
+        if (result['success'] && result['data']['verified'] == true) {
+          setState(() => _isVerified = true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Scanned: $scannedId - Verified successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Scanned: $scannedId - ID does not match!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No tracking ID found. Please enter manually.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Camera error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

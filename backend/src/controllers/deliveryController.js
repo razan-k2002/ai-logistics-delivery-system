@@ -245,7 +245,7 @@ exports.updateStatus = async (req, res) => {
         } else if (status === 'cancelled') {
             await createNotification(
                 result.rows[0].customer_id,
-                'Delivery Cancelled ❌',
+                'Delivery Cancelled',
                 `Your delivery #DEL${String(id).padStart(3, '0')} has been cancelled.`
             );
         }

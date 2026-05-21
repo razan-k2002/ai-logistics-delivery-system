@@ -163,31 +163,32 @@ class ApiService {
     required String pickupLocation,
     required String deliveryLocation,
     required int customerId,
+    List<double>? pickupCoords,
+    List<double>? deliveryCoords,
   }) async {
     try {
+      final body = {
+        'pickup_location': pickupLocation,
+        'delivery_location': deliveryLocation,
+        'customer_id': customerId,
+        'pickup_coords': pickupCoords ?? [35.5018, 33.8938],
+        'delivery_coords': deliveryCoords ?? [35.5197, 33.8886],
+      };
+
       final response = await http
           .post(
         Uri.parse('$baseUrl/api/deliveries'),
         headers: authHeaders,
-        body: jsonEncode({
-          'pickup_location': pickupLocation,
-          'delivery_location': deliveryLocation,
-          'customer_id': customerId,
-        }),
+        body: jsonEncode(body),
       )
-          .timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Connection timeout'),
-      );
+          .timeout(const Duration(seconds: 10),
+          onTimeout: () => throw Exception('Connection timeout'));
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 201 || response.statusCode == 200) {
         return {'success': true, 'data': data};
       } else {
-        return {
-          'success': false,
-          'message': data['message'] ?? 'Failed to create delivery',
-        };
+        return {'success': false, 'message': data['message'] ?? 'Failed to create delivery'};
       }
     } catch (e) {
       return {'success': false, 'message': 'Connection error.'};
