@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 class DeliveryDetailsScreen extends StatefulWidget {
   const DeliveryDetailsScreen({super.key});
 
@@ -474,32 +476,37 @@ class _DeliveryDetailsScreenState extends State<DeliveryDetailsScreen> {
 
             const SizedBox(height: 16),
 
-            // Map Placeholder
+            // Real Google Map
             Container(
               width: double.infinity,
-              height: 180,
+              height: 220,
               decoration: BoxDecoration(
-                color: Colors.blue[50],
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.map, size: 50, color: Colors.orange),
-                    SizedBox(height: 8),
-                    Text(
-                      'AI Optimized Route Map',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: GoogleMap(
+                  initialCameraPosition: const CameraPosition(
+                    target: LatLng(33.8938, 35.5018), // Beirut default
+                    zoom: 13,
+                  ),
+                  markers: {
+                     Marker(
+                      markerId: MarkerId('pickup'),
+                      position: LatLng(33.8938, 35.5018),
+                      infoWindow: InfoWindow(title: 'Pickup'),
+                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueGreen,
+                      ),
                     ),
-                    Text(
-                      'Google Maps coming soon',
-                      style:
-                      TextStyle(color: Colors.grey, fontSize: 12),
+                    const Marker(
+                      markerId: MarkerId('dropoff'),
+                      position: LatLng(33.8886, 35.5197),
+                      infoWindow: InfoWindow(title: 'Drop-off'),
                     ),
-                  ],
+                  },
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
                 ),
               ),
             ),

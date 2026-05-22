@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/delivery_timeline.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class TrackDeliveryScreen extends StatefulWidget {
   const TrackDeliveryScreen({super.key});
@@ -287,30 +288,37 @@ class _TrackDeliveryScreenState extends State<TrackDeliveryScreen> {
 
           const SizedBox(height: 16),
 
-          // Map Placeholder
+          // Real Google Map
           Container(
             width: double.infinity,
-            height: 200,
+            height: 220,
             decoration: BoxDecoration(
-              color: Colors.blue[50],
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.map, size: 60, color: Colors.orange),
-                  SizedBox(height: 8),
-                  Text(
-                    'Live Map View',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.orange),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: GoogleMap(
+                initialCameraPosition: const CameraPosition(
+                  target: LatLng(33.8938, 35.5018), // Beirut default
+                  zoom: 13,
+                ),
+                markers: {
+                   Marker(
+                    markerId: MarkerId('pickup'),
+                    position: LatLng(33.8938, 35.5018),
+                    infoWindow: InfoWindow(title: 'Pickup'),
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueGreen,
+                    ),
                   ),
-                  Text(
-                    'Google Maps integration coming soon',
-                    style: TextStyle(color: Colors.grey),
+                  const Marker(
+                    markerId: MarkerId('dropoff'),
+                    position: LatLng(33.8886, 35.5197),
+                    infoWindow: InfoWindow(title: 'Drop-off'),
                   ),
-                ],
+                },
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
               ),
             ),
           ),
