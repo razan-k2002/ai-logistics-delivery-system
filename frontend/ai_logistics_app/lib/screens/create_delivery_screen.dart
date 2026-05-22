@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import 'package:geocoding/geocoding.dart';
 
 class CreateDeliveryScreen extends StatefulWidget {
   const CreateDeliveryScreen({super.key});
@@ -59,10 +60,42 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
 
     setState(() => _isLoading = true);
 
+    // Geocode addresses to coordinates
+    List<double>? pickupCoords;
+    List<double>? deliveryCoords;
+
+    try {
+      final pickupLocations = await locationFromAddress(
+          '${_pickupController.text.trim()}, Lebanon'
+      );
+      if (pickupLocations.isNotEmpty) {
+        pickupCoords = [
+          pickupLocations.first.longitude,
+          pickupLocations.first.latitude,
+        ];
+      }
+
+      final deliveryLocations = await locationFromAddress(
+          '${_dropoffController.text.trim()}, Lebanon'
+      );
+      if (deliveryLocations.isNotEmpty) {
+        deliveryCoords = [
+          deliveryLocations.first.longitude,
+          deliveryLocations.first.latitude,
+        ];
+      }
+    } catch (e) {
+      // If geocoding fails, use default Beirut coords
+      pickupCoords = [35.5018, 33.8938];
+      deliveryCoords = [35.5197, 33.8886];
+    }
+
     final result = await ApiService.createDelivery(
       pickupLocation: _pickupController.text.trim(),
       deliveryLocation: _dropoffController.text.trim(),
       customerId: _customerId!,
+      pickupCoords: pickupCoords,
+      deliveryCoords: deliveryCoords,
     );
 
     setState(() => _isLoading = false);
@@ -104,7 +137,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
+                    color: Colors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -149,8 +182,9 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(result['message'] ?? 'Failed to create delivery'),
-            backgroundColor: Colors.red),
+          content: Text(result['message'] ?? 'Failed to create delivery'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }

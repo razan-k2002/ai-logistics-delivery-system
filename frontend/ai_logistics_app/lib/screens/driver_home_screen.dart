@@ -15,6 +15,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _isLoading = true;
   String _driverEmail = '';
   String _driverName = '';
+  int? _driverId;
 
   @override
   void initState() {
@@ -22,7 +23,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     _loadDeliveries();
   }
 
-  void _loadDeliveries() async {
+  Future<void> _loadDeliveries() async {
     final userId = await StorageService.getUserId();
     final email = await StorageService.getEmail();
     final name = await StorageService.getName();
@@ -47,6 +48,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
 
     final driverId = driverResult['data']['driver']['id'];
+    setState(() => _driverId = driverId);
     final result = await ApiService.getDriverDeliveries(driverId);
     setState(() {
       _isLoading = false;
@@ -98,13 +100,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              setState(() => _isLoading = true);
-              _loadDeliveries();
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () async {
               final navigator = Navigator.of(context);
@@ -116,234 +111,251 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Availability Banner
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: _isAvailable ? Colors.orange : Colors.grey[400],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Availability Status',
-                        style: TextStyle(color: Colors.white, fontSize: 14),
-                      ),
-                      Text(
-                        _isAvailable ? 'You are Online' : 'You are Offline',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Switch(
-                    value: _isAvailable,
-                    onChanged: (value) {
-                      setState(() => _isAvailable = value);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            value ? 'You are now Online!' : 'You are now Offline!',
-                          ),
-                          backgroundColor: value ? Colors.green : Colors.grey,
-                        ),
-                      );
-                    },
-                    activeThumbColor: Colors.white,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Stats Row
-            Row(
-              children: [
-                Expanded(
-                  child: _StatsCard(
-                    label: 'Total',
-                    value: _deliveries.length.toString(),
-                    color: Colors.orange,
-                  ),
+      body: RefreshIndicator(
+        color: Colors.orange,
+        onRefresh: () async {
+          setState(() => _isLoading = true);
+          await _loadDeliveries();
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Availability Banner
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: _isAvailable ? Colors.orange : Colors.grey[400],
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatsCard(
-                    label: 'In Progress',
-                    value: _deliveries
-                        .where((d) => d['status'] == 'in_progress')
-                        .length
-                        .toString(),
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatsCard(
-                    label: 'Delivered',
-                    value: _deliveries
-                        .where((d) => d['status'] == 'delivered')
-                        .length
-                        .toString(),
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            const Text(
-              'Assigned Deliveries',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            _isLoading
-                ? const Center(
-              child: CircularProgressIndicator(color: Colors.orange),
-            )
-                : _deliveries.isEmpty
-                ? Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Column(
-                children: [
-                  Icon(Icons.inbox, size: 48, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text(
-                    'No deliveries assigned yet',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            )
-                : Column(
-              children: _deliveries.map((delivery) {
-                final status = delivery['status'] ?? 'pending';
-                return GestureDetector(
-                  onTap: () async {
-                    await Navigator.pushNamed(
-                      context,
-                      '/delivery-details',
-                      arguments: delivery,
-                    );
-                    // Refresh deliveries when coming back
-                    setState(() => _isLoading = true);
-                    _loadDeliveries();
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment:
-                          MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '#DEL${delivery['id'].toString().padLeft(3, '0')}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
+                        const Text(
+                          'Availability Status',
+                          style: TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                        Text(
+                          _isAvailable ? 'You are Online' : 'You are Offline',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Switch(
+                      value: _isAvailable,
+                      onChanged: (value) async {
+                        if (_driverId == null) return;
+                        final result = await ApiService.updateDriverAvailability(_driverId!, value);
+                        if (result['success']) {
+                          setState(() => _isAvailable = value);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(value ? 'You are now Online!' : 'You are now Offline!'),
+                              backgroundColor: value ? Colors.green : Colors.grey,
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(status)
-                                    .withValues(alpha: 0.1),
-                                borderRadius:
-                                BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                _getStatusLabel(status),
-                                style: TextStyle(
-                                  color: _getStatusColor(status),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to update availability'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      activeThumbColor: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Stats Row
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatsCard(
+                      label: 'Total',
+                      value: _deliveries.length.toString(),
+                      color: Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _StatsCard(
+                      label: 'In Progress',
+                      value: _deliveries
+                          .where((d) => d['status'] == 'in_progress')
+                          .length
+                          .toString(),
+                      color: Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _StatsCard(
+                      label: 'Delivered',
+                      value: _deliveries
+                          .where((d) => d['status'] == 'delivered')
+                          .length
+                          .toString(),
+                      color: Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              const Text(
+                'Assigned Deliveries',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              _isLoading
+                  ? const Center(
+                child: CircularProgressIndicator(color: Colors.orange),
+              )
+                  : _deliveries.isEmpty
+                  ? Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(Icons.inbox, size: 48, color: Colors.grey),
+                    SizedBox(height: 8),
+                    Text(
+                      'No deliveries assigned yet',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              )
+                  : Column(
+                children: _deliveries.map((delivery) {
+                  final status = delivery['status'] ?? 'pending';
+                  return GestureDetector(
+                    onTap: () async {
+                      await Navigator.pushNamed(
+                        context,
+                        '/delivery-details',
+                        arguments: delivery,
+                      );
+                      // Refresh deliveries when coming back
+                      setState(() => _isLoading = true);
+                      _loadDeliveries();
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '#DEL${delivery['id'].toString().padLeft(3, '0')}',
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 12,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(Icons.circle,
-                                color: Colors.green, size: 12),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                delivery['pickup_location'] ?? '',
-                                style: const TextStyle(
-                                    color: Colors.grey),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on,
-                                color: Colors.red, size: 12),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                delivery['delivery_location'] ?? '',
-                                style: const TextStyle(
-                                    color: Colors.grey),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (delivery['estimated_time'] != null) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.timer,
-                                  color: Colors.orange, size: 12),
-                              const SizedBox(width: 8),
-                              Text(
-                                'ETA: ${delivery['estimated_time']} mins',
-                                style: const TextStyle(
-                                    color: Colors.orange,
-                                    fontSize: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(status)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius:
+                                  BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _getStatusLabel(status),
+                                  style: TextStyle(
+                                    color: _getStatusColor(status),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.circle,
+                                  color: Colors.green, size: 12),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  delivery['pickup_location'] ?? '',
+                                  style: const TextStyle(
+                                      color: Colors.grey),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on,
+                                  color: Colors.red, size: 12),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  delivery['delivery_location'] ?? '',
+                                  style: const TextStyle(
+                                      color: Colors.grey),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (delivery['estimated_time'] != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.timer,
+                                    color: Colors.orange, size: 12),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'ETA: ${delivery['estimated_time']} mins',
+                                  style: const TextStyle(
+                                      color: Colors.orange,
+                                      fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -423,7 +435,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     );
   }
 
-  void _showProfile() {
+  void _showProfile() async {
+    Map<String, dynamic>? performance;
+
+    if (_driverId != null) {
+      final result = await ApiService.getDriverPerformance(_driverId!);
+      if (result['success']) {
+        performance = result['data']['performance'];
+      }
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -443,22 +466,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               const SizedBox(height: 16),
               Text(
                 _driverName,
-                style:
-                const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              Text(
-                _driverEmail,
-                style: const TextStyle(color: Colors.grey),
-              ),
+              Text(_driverEmail, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 8),
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _isAvailable
-                      ? Colors.green.withValues(alpha: 0.1)
-                      : Colors.grey.withValues(alpha: 0.1),
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -468,20 +486,87 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _ProfileStat(
+
+              // Performance Stats
+              if (performance != null) ...[
+                const Divider(),
+                const SizedBox(height: 8),
+                const Text(
+                  'Performance Analytics',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _ProfileStat(
                       label: 'Total',
-                      value: _deliveries.length.toString()),
-                  _ProfileStat(
+                      value: performance['total_deliveries'].toString(),
+                    ),
+                    _ProfileStat(
+                      label: 'Completed',
+                      value: performance['completed_deliveries'].toString(),
+                    ),
+                    _ProfileStat(
+                      label: 'On-Time %',
+                      value: '${performance['on_time_rate_percent'] ?? 0}%',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _ProfileStat(
+                      label: 'Avg Time',
+                      value: '${performance['avg_delivery_time_minutes'] ?? 0} min',
+                    ),
+                    _ProfileStat(
+                      label: 'Cancelled',
+                      value: performance['cancelled_deliveries'].toString(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // On-time rate progress bar
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('On-Time Rate', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        Text(
+                          '${performance['on_time_rate_percent'] ?? 0}%',
+                          style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: (int.tryParse(performance['on_time_rate_percent']?.toString() ?? '0') ?? 0) / 100,
+                        backgroundColor: Colors.grey[200],
+                        color: Colors.orange,
+                        minHeight: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _ProfileStat(label: 'Total', value: _deliveries.length.toString()),
+                    _ProfileStat(
                       label: 'Delivered',
-                      value: _deliveries
-                          .where((d) => d['status'] == 'delivered')
-                          .length
-                          .toString()),
-                ],
-              ),
+                      value: _deliveries.where((d) => d['status'] == 'delivered').length.toString(),
+                    ),
+                  ],
+                ),
+              ],
+
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -495,11 +580,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Logout',
-                      style: TextStyle(color: Colors.white)),
+                  child: const Text('Logout', style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],
