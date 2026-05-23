@@ -1,6 +1,16 @@
 from flask import Flask, request, jsonify
 import requests
+import joblib
+import numpy as np
+from datetime import datetime
 
+# Load ML model
+try:
+    eta_model = joblib.load('eta_model.pkl')
+    print("ML ETA model loaded successfully!")
+except:
+    eta_model = None
+    print("No ML model found, using route duration only")
 app = Flask(__name__)
 
 ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImQyYjE0NDY1Y2FjNTQyMmI4OTkwNmY2OGJkYzc4NWFjIiwiaCI6Im11cm11cjY0In0="
@@ -58,6 +68,36 @@ def optimize_route():
         "total_duration_seconds": total_duration,
         "total_duration_minutes": round(total_duration / 60, 2)
     })
+@app.route("/predict-eta", methods=["POST"])
+def predict_eta():
+    data = request.json
+    
+    estimated_time = data.get("estimated_time", 10)
+    driver_experience = data.get("driver_experience", 0)
+    driver_avg_time = data.get("driver_avg_time", estimated_time)
+    
+    now = datetime.now()
+    hour_of_day = now.hour
+    day_of_week = now.weekday()
 
+    if eta_model is not None:
+        features = np.array([[
+            estimated_time,
+            hour_of_day,
+            day_of_week,
+            driver_experience,
+            driver_avg_time
+        ]])
+        predicted = eta_model.predict(features)[0]
+        predicted = max(1, round(predicted))
+    else:
+        predicted = estimated_time
+
+    return jsonify({
+        "predicted_eta_minutes": predicted,
+        "base_estimated_minutes": estimated_time,
+        "hour_of_day": hour_of_day,
+        "model_used": "RandomForest" if eta_model else "fallback"
+    })
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

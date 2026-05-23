@@ -146,7 +146,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                       const Icon(Icons.access_time, color: Colors.orange),
                       const SizedBox(width: 8),
                       Text(
-                        'ETA: ${route['total_duration_minutes']?.toStringAsFixed(0)} mins',
+                        'ETA: ${delivery['estimated_time'] ?? route['total_duration_minutes']?.toStringAsFixed(0)} mins',
                         style: const TextStyle(
                           color: Colors.orange,
                           fontWeight: FontWeight.bold,

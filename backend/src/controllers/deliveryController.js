@@ -38,38 +38,70 @@ exports.createDelivery = async (req, res) => {
                 });
                 optimizedRoute = aiResponse.data;
 
-                // Save estimated time to database
                 const estimatedMinutes = Math.round(optimizedRoute.total_duration_minutes);
-                await pool.query(
-                    "UPDATE deliveries SET estimated_time=$1 WHERE id=$2",
-                    [estimatedMinutes, delivery.id]
-                );
-                delivery.estimated_time = estimatedMinutes;
 
-            } catch (aiError) {
-                console.error("AI service error:", aiError.message);
-                console.error("AI service full error:", aiError.response?.data);
-            }
+        // Get driver performance for smarter ETA
+        let predictedEta = estimatedMinutes;
+        try {
+            const driverPerf = await pool.query(
+                `SELECT 
+                    COUNT(*) AS experience,
+                    COALESCE(AVG(actual_delivery_time), $1) AS avg_time
+                FROM deliveries 
+                WHERE driver_id IS NOT NULL 
+                AND status = 'delivered'`,
+                [estimatedMinutes]
+            );
+
+            const experience = parseInt(driverPerf.rows[0].experience) || 0;
+            const avgTime = parseFloat(driverPerf.rows[0].avg_time) || estimatedMinutes;
+
+            const mlResponse = await axios.post("http://127.0.0.1:5000/predict-eta", {
+                estimated_time: estimatedMinutes,
+                driver_experience: experience,
+                driver_avg_time: avgTime
+            });
+            predictedEta = mlResponse.data.predicted_eta_minutes;
+        } catch (mlError) {
+            console.error("ML ETA error:", mlError.message);
+            predictedEta = estimatedMinutes;
         }
 
-        // Always notify customer when delivery is created
-        await createNotification(
-            customer_id,
-            'Delivery Request Received',
-            `Your delivery request has been created successfully. Tracking ID: ${delivery.tracking_id}`
+        await pool.query(
+            "UPDATE deliveries SET estimated_time=$1 WHERE id=$2",
+            [predictedEta, delivery.id]
         );
+        delivery.estimated_time = predictedEta;
 
-        res.json({
-            message: "Delivery created successfully",
-            delivery,
-            optimized_route: optimizedRoute
-        });
+                    } catch (aiError) {
+                        console.error("AI service error:", aiError.message);
+                        console.error("AI service full error:", aiError.response?.data);
+                    }
+                }
 
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message });
-    }
-};
+                // Always notify customer when delivery is created
+                await createNotification(
+                    customer_id,
+                    'Delivery Request Received',
+                    `Your delivery request has been created successfully. Tracking ID: ${delivery.tracking_id}`
+                );
+
+                res.json({
+                message: "Delivery created successfully",
+                delivery,
+                optimized_route: optimizedRoute,
+                eta_details: {
+                    base_route_minutes: Math.round(optimizedRoute?.total_duration_minutes || 0),
+                    ml_predicted_minutes: delivery.estimated_time,
+                    model: "RandomForest"
+                }
+            });
+
+            } catch (error) {
+                console.error(error);
+                res.status(500).json({ error: error.message });
+            }
+        };
 
 // GET DELIVERY BY ID
 exports.getDelivery = async (req, res) => {
