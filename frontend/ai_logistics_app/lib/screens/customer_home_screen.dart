@@ -286,6 +286,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.orange,
+        onPressed: () => Navigator.pushNamed(context, '/chat'),
+        child: const Icon(Icons.smart_toy, color: Colors.white),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: Colors.orange,
         currentIndex: 0,

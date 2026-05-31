@@ -6,9 +6,11 @@ const deliveryRoutes = require("./routes/deliveryRoutes");
 const driverRoutes = require("./routes/driverRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const chatRoutes = require("./routes/chatRoutes");
 
-app.use("/api/notifications", notificationRoutes);
 app.use(express.json());
+app.use("/api/chat", chatRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/deliveries", deliveryRoutes);
 app.use("/api/drivers", driverRoutes);

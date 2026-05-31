@@ -5,7 +5,8 @@ class ApiService {
   // Razan's PC:     http://192.168.0.111:3000
   // zeinab's PC:  http://192.168.10.77:3000
   // Android Emulator: http://10.0.2.2:3000
-  static const String baseUrl = 'http://192.168.0.111:3000';
+  static const String baseUrl = 'http://192.168.0.116:3000';
+  static const String aiServiceUrl = 'http://192.168.0.111:5000'; // Python Flask port
 
   static String? token;
   static int? userId;
@@ -218,6 +219,45 @@ class ApiService {
     }
   }
 
+// ─── Get My Deliveries (Customer) ──────────────────────────
+  static Future<Map<String, dynamic>> getMyDeliveries() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/deliveries/my'),
+        headers: authHeaders,
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data['deliveries'] ?? data};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Failed to load deliveries'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+  static Future<Map<String, dynamic>> sendChatMessage(String message) async {
+    try {
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/api/chat'),
+        headers: authHeaders,
+        body: jsonEncode({'message': message}),
+      )
+          .timeout(const Duration(seconds: 10),
+          onTimeout: () => throw Exception('Connection timeout'));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data};
+      } else {
+        return {'success': false, 'message': 'Chat failed'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error.'};
+    }
+  }
   static Future<Map<String, dynamic>> trackDelivery(int id) async {
     try {
       final response = await http
