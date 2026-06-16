@@ -11,6 +11,7 @@ import 'screens/notifications_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/api_service.dart';
 import 'services/storage_service.dart';
+import 'screens/chat_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +54,7 @@ class MyApp extends StatelessWidget {
         '/delivery-details': (context) => const DeliveryDetailsScreen(),
         '/admin': (context) => const AdminHomeScreen(),
         '/notifications': (context) => const NotificationsScreen(),
+        '/chat': (context) => const ChatScreen(),
       },
     );
   }
