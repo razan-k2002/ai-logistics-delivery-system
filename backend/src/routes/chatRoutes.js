@@ -3,7 +3,7 @@ const router = express.Router();
 const axios = require("axios");
 const pool = require("../config/db");
 const { verifyToken } = require("../middleware/authMiddleware");
-
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL;
 router.post("/", verifyToken, async (req, res) => {
     try {
         const { message } = req.body;
@@ -11,7 +11,7 @@ router.post("/", verifyToken, async (req, res) => {
         const userRole = req.user.role;
 
         // Get intent from Flask chatbot
-        const chatResponse = await axios.post("http://127.0.0.1:5000/chat", {
+        const chatResponse = await axios.post(`${AI_SERVICE_URL}/chat`, {
             message,
             role: userRole
         });

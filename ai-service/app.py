@@ -3,7 +3,16 @@ import requests
 import joblib
 import numpy as np
 from datetime import datetime
-# Load ML model
+import os
+from dotenv import load_dotenv
+from groq import Groq
+
+load_dotenv()  # load .env first
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+ORS_API_KEY = os.getenv("ORS_API_KEY")
+
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))# Load ML model
 try:
     eta_model = joblib.load('eta_model.pkl')
     print("ML ETA model loaded successfully!")
@@ -12,19 +21,41 @@ except:
     print("No ML model found, using route duration only")
 app = Flask(__name__)
 
-ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImQyYjE0NDY1Y2FjNTQyMmI4OTkwNmY2OGJkYzc4NWFjIiwiaCI6Im11cm11cjY0In0="
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "service": "AI Logistics Service",
+        "status": "running",
+        "endpoints": [
+            "/optimize",
+            "/predict-eta",
+            "/chat"
+        ]
+    })
 
 def get_distance_matrix(locations):
+    print("Entered get_distance_matrix")
+    print("Locations:", locations)
+
     url = "https://api.openrouteservice.org/v2/matrix/driving-car"
+
     headers = {
         "Authorization": ORS_API_KEY,
         "Content-Type": "application/json"
     }
+
     body = {
         "locations": locations,
         "metrics": ["distance", "duration"]
     }
+
+    print("Sending request to ORS...")
+
     response = requests.post(url, json=body, headers=headers)
+
+    print("Status:", response.status_code)
+    print("Response:", response.text)
+
     return response.json()
 
 @app.route("/optimize", methods=["POST"])
@@ -129,15 +160,52 @@ def chat():
     intent = chatbot_model.predict([message])[0]
     confidence = max(chatbot_model.predict_proba([message])[0])
 
-    # If confidence too low, return unknown
-    if confidence < 0.4:
-        return jsonify({
-            "intent": "unknown",
-            "response": "I'm not sure I understand. Can you rephrase your question?",
-            "action": "NONE",
-            "confidence": round(confidence, 2)
-        })
+    # Add this before the confidence check
+    out_of_scope_keywords = [
+        'weather', 'news', 'joke', 'sport', 'food', 
+        'movie', 'music', 'capital', 'country', 'who is',
+        'what is the', 'how do i', 'tell me about'
+    ]
 
+    message_is_out_of_scope = any(
+        keyword in message for keyword in out_of_scope_keywords
+    )
+
+    if confidence < 0.7 or message_is_out_of_scope:
+        try:
+            completion = groq_client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """You are a helpful assistant for an AI-powered logistics and delivery app. 
+                        You help customers track deliveries, check ETAs, place orders, and answer general questions.
+                        You help drivers manage their assigned deliveries and update statuses.
+                        You help admins monitor performance and manage the fleet.
+                        Keep responses short, friendly, and under 3 sentences."""
+                    },
+                    {
+                        "role": "user",
+                        "content": message
+                    }
+                ],
+                max_tokens=200
+            )
+            return jsonify({
+                "intent": "unknown",
+                "response": completion.choices[0].message.content,
+                "action": "NONE",
+                "confidence": round(confidence, 2),
+                "model_used": "llama3-fallback"
+            })
+        except Exception as e:
+            print(f"Groq error: {e}")
+            return jsonify({
+                "intent": "unknown",
+                "response": "I can help you with delivery tracking, ETA queries, and order management. What would you like to know?",
+                "action": "NONE",
+                "confidence": round(confidence, 2)
+            })
     # Map intent to response and action
     responses = {
         "greeting": {
@@ -216,6 +284,7 @@ def chat():
         "response": result["response"],
         "action": result["action"],
         "confidence": round(confidence, 2)
-    })
+    }) 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

@@ -2,12 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Razan's PC:     http://192.168.0.111:3000
-  // zeinab's PC:  http://192.168.10.77:3000
-  // Android Emulator: http://10.0.2.2:3000
-  static const String baseUrl = 'http://192.168.0.116:3000';
-  static const String aiServiceUrl = 'http://192.168.0.111:5000'; // Python Flask port
 
+  static const String baseUrl = 'https://ai-logistics-backend-889332402082.us-central1.run.app';
+  static const String aiServiceUrl = 'http://192.168.0.111:5000';
   static String? token;
   static int? userId;
   static String? userRole;

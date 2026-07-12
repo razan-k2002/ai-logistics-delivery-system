@@ -2,6 +2,8 @@ const pool = require("../config/db");
 const axios = require("axios");
 const crypto = require("crypto");
 const { sendNotification } = require("../utils/notifications");
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL; 
+
 // Helper to create a notification
 const createNotification = async (userId, title, message) => {
     try {
@@ -33,7 +35,7 @@ exports.createDelivery = async (req, res) => {
         let optimizedRoute = null;
         if (pickup_coords && delivery_coords) {
             try {
-                const aiResponse = await axios.post("http://127.0.0.1:5000/optimize", {
+                const aiResponse = await axios.post(`${AI_SERVICE_URL}/optimize`, {
                     locations: [pickup_coords, delivery_coords]
                 });
                 optimizedRoute = aiResponse.data;
@@ -56,7 +58,7 @@ exports.createDelivery = async (req, res) => {
             const experience = parseInt(driverPerf.rows[0].experience) || 0;
             const avgTime = parseFloat(driverPerf.rows[0].avg_time) || estimatedMinutes;
 
-            const mlResponse = await axios.post("http://127.0.0.1:5000/predict-eta", {
+            const mlResponse = await axios.post(`${AI_SERVICE_URL}/predict-eta`, {
                 estimated_time: estimatedMinutes,
                 driver_experience: experience,
                 driver_avg_time: avgTime
@@ -91,7 +93,7 @@ exports.createDelivery = async (req, res) => {
                 delivery,
                 optimized_route: optimizedRoute,
                 eta_details: {
-                    base_route_minutes: Math.round(optimizedRoute?.total_duration_minutes || 0),
+                    base_route_minutes: optimizedRoute?.total_duration_minutes ?? null,
                     ml_predicted_minutes: delivery.estimated_time,
                     model: "RandomForest"
                 }
